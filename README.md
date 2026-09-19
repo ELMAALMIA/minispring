@@ -1,6 +1,9 @@
 # minispring
 
 [![CI](https://github.com/ELMAALMIA/minispring/actions/workflows/ci.yml/badge.svg)](https://github.com/ELMAALMIA/minispring/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ELMAALMIA_minispring&metric=alert_status)](https://sonarcloud.io/summary/overall?id=ELMAALMIA_minispring)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ELMAALMIA_minispring&metric=coverage)](https://sonarcloud.io/summary/overall?id=ELMAALMIA_minispring)
+[![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=ELMAALMIA_minispring&metric=sqale_rating)](https://sonarcloud.io/summary/overall?id=ELMAALMIA_minispring)
 
 A dependency injection container written from scratch in Java 21 to make Spring's machinery visible: component scanning, constructor injection, scopes, lifecycle callbacks, application events and proxy-based `@Transactional`.
 
