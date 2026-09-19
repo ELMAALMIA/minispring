@@ -27,6 +27,13 @@ public final class BeanRegistry {
         return definitions.containsKey(name);
     }
 
+    /** Returns the definitions whose type can be assigned to {@code type}, in registration order. */
+    public List<BeanDefinition> definitionsOfType(Class<?> type) {
+        return definitions.values().stream()
+                .filter(definition -> type.isAssignableFrom(definition.type()))
+                .toList();
+    }
+
     public List<BeanDefinition> definitions() {
         return List.copyOf(definitions.values());
     }

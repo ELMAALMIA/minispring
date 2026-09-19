@@ -1,5 +1,6 @@
 package io.minispring.container.bean;
 
+import io.minispring.container.annotation.Primary;
 import java.lang.reflect.Constructor;
 import java.util.Objects;
 
@@ -19,5 +20,9 @@ public record BeanDefinition(String name, Class<?> type, Constructor<?> construc
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(constructor, "constructor");
+    }
+
+    public boolean isPrimary() {
+        return type.isAnnotationPresent(Primary.class);
     }
 }
