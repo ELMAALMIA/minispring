@@ -1,5 +1,7 @@
 # minispring
 
+[![CI](https://github.com/ELMAALMIA/minispring/actions/workflows/ci.yml/badge.svg)](https://github.com/ELMAALMIA/minispring/actions/workflows/ci.yml)
+
 A dependency injection container written from scratch in Java 21 to make Spring's machinery visible: component scanning, constructor injection, scopes, lifecycle callbacks, application events and proxy-based `@Transactional`.
 
 **It is not a Spring replacement.** It is about 900 lines of code with no runtime dependencies, meant to be read top to bottom in an afternoon. Every design decision should be explainable in a sentence, and this README tries to do exactly that.
