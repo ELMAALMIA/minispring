@@ -24,6 +24,10 @@
         <junit.version>5.14.0</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <jacoco.version>0.8.13</jacoco.version>
+
+        <!-- SonarCloud; the organization and project key are passed in by CI. -->
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.qualitygate.wait>true</sonar.qualitygate.wait>
     </properties>
 
     <dependencyManagement>
@@ -83,6 +87,11 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>5.1.0.4751</version>
                 </plugin>
             </plugins>
         </pluginManagement>
