@@ -9,6 +9,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -104,10 +105,19 @@ public final class ClasspathScanner {
 
     private static boolean isInstantiableComponent(Class<?> type) {
         int modifiers = type.getModifiers();
-        return type.isAnnotationPresent(Component.class)
+        return isComponent(type)
                 && !type.isInterface()
                 && !Modifier.isAbstract(modifiers)
                 // A non-static inner class cannot exist without an instance of its enclosing class.
                 && (!type.isMemberClass() || Modifier.isStatic(modifiers));
+    }
+
+    /**
+     * True for {@link Component} itself, and for annotations that carry it, such as
+     * {@code @RestController}. One level of meta-annotation is enough here.
+     */
+    private static boolean isComponent(Class<?> type) {
+        return type.isAnnotationPresent(Component.class) || Arrays.stream(type.getAnnotations())
+                .anyMatch(annotation -> annotation.annotationType().isAnnotationPresent(Component.class));
     }
 }

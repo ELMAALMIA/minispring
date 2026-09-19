@@ -13,8 +13,12 @@ import io.minispring.container.scan.ClasspathScanner;
 import io.minispring.container.transaction.ConsoleTransactionManager;
 import io.minispring.container.transaction.TransactionManager;
 import io.minispring.container.transaction.TransactionalProcessor;
+import java.lang.annotation.Annotation;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The container, assembled from its parts. It registers a definition for each component
@@ -100,6 +104,16 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     @Override
     public boolean containsBean(String name) {
         return registry.contains(name);
+    }
+
+    @Override
+    public Map<String, Object> getBeansWithAnnotation(Class<? extends Annotation> annotationType) {
+        assertOpen();
+        Map<String, Object> beans = new LinkedHashMap<>();
+        registry.definitions().stream()
+                .filter(definition -> definition.type().isAnnotationPresent(annotationType))
+                .forEach(definition -> beans.put(definition.name(), beanFactory.getBean(definition)));
+        return Collections.unmodifiableMap(beans);
     }
 
     @Override

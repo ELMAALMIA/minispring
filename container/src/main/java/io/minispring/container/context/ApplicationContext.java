@@ -1,6 +1,8 @@
 package io.minispring.container.context;
 
 import io.minispring.container.exception.NoSuchBeanException;
+import java.lang.annotation.Annotation;
+import java.util.Map;
 
 /**
  * The container's public face: the place where application code looks beans up.
@@ -24,6 +26,9 @@ public interface ApplicationContext extends AutoCloseable {
     <T> T getBean(String name, Class<T> type);
 
     boolean containsBean(String name);
+
+    /** Returns every bean whose class carries {@code annotationType}, keyed by bean name. */
+    Map<String, Object> getBeansWithAnnotation(Class<? extends Annotation> annotationType);
 
     /** Closes the context. Unlike {@link AutoCloseable#close()}, it never throws a checked exception. */
     @Override
