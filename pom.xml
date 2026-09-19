@@ -15,6 +15,7 @@
     <modules>
         <module>container</module>
         <module>demo</module>
+        <module>demo-spring</module>
     </modules>
 
     <properties>
