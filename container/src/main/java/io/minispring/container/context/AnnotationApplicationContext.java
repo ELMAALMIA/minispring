@@ -10,6 +10,9 @@ import io.minispring.container.bean.Dependency;
 import io.minispring.container.bean.DependencyResolver;
 import io.minispring.container.exception.NoSuchBeanException;
 import io.minispring.container.scan.ClasspathScanner;
+import io.minispring.container.transaction.ConsoleTransactionManager;
+import io.minispring.container.transaction.TransactionManager;
+import io.minispring.container.transaction.TransactionalProcessor;
 import java.util.Arrays;
 import java.util.List;
 
@@ -61,10 +64,23 @@ public final class AnnotationApplicationContext implements ApplicationContext {
                 .forEach(beanFactory::getBean);
     }
 
-    /** Post-processors are beans too, but they must exist before the beans they process. */
+    /**
+     * Post-processors are beans too, but they must exist before the beans they process. The
+     * built-in transactional processor comes first, like Spring's
+     * {@code @EnableTransactionManagement}.
+     */
     private void registerPostProcessors() {
+        beanFactory.addPostProcessor(new TransactionalProcessor(transactionManager()));
         registry.definitionsOfType(BeanPostProcessor.class)
                 .forEach(definition -> beanFactory.addPostProcessor(beanFactory.getBean(definition, BeanPostProcessor.class)));
+    }
+
+    /** The application's own {@link TransactionManager} bean if it declares one, the console one otherwise. */
+    private TransactionManager transactionManager() {
+        if (registry.definitionsOfType(TransactionManager.class).isEmpty()) {
+            return new ConsoleTransactionManager();
+        }
+        return beanFactory.getBean(resolver.resolve(Dependency.on(TransactionManager.class)), TransactionManager.class);
     }
 
     @Override
