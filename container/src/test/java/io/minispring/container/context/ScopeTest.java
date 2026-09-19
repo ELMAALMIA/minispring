@@ -10,19 +10,19 @@ import org.junit.jupiter.api.Test;
 
 class ScopeTest {
 
-    static final AtomicInteger singletonsCreated = new AtomicInteger();
-    static final AtomicInteger prototypesCreated = new AtomicInteger();
+    static final AtomicInteger SINGLETONS_CREATED = new AtomicInteger();
+    static final AtomicInteger PROTOTYPES_CREATED = new AtomicInteger();
 
     static class Cache {
         Cache() {
-            singletonsCreated.incrementAndGet();
+            SINGLETONS_CREATED.incrementAndGet();
         }
     }
 
     @Scope(ScopeType.PROTOTYPE)
     static class ShoppingCart {
         ShoppingCart() {
-            prototypesCreated.incrementAndGet();
+            PROTOTYPES_CREATED.incrementAndGet();
         }
     }
 
@@ -36,8 +36,8 @@ class ScopeTest {
 
     @BeforeEach
     void resetCounters() {
-        singletonsCreated.set(0);
-        prototypesCreated.set(0);
+        SINGLETONS_CREATED.set(0);
+        PROTOTYPES_CREATED.set(0);
     }
 
     @Test
@@ -57,12 +57,12 @@ class ScopeTest {
     @Test
     void createsSingletonsAtStartupAndPrototypesOnlyWhenRequested() {
         try (var context = AnnotationApplicationContext.of(Cache.class, ShoppingCart.class)) {
-            assertThat(singletonsCreated).hasValue(1);
-            assertThat(prototypesCreated).hasValue(0);
+            assertThat(SINGLETONS_CREATED).hasValue(1);
+            assertThat(PROTOTYPES_CREATED).hasValue(0);
 
             context.getBean(ShoppingCart.class);
 
-            assertThat(prototypesCreated).hasValue(1);
+            assertThat(PROTOTYPES_CREATED).hasValue(1);
         }
     }
 

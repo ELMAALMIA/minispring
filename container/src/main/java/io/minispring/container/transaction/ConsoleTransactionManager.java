@@ -8,6 +8,8 @@ public final class ConsoleTransactionManager implements TransactionManager {
 
     private final PrintStream out;
 
+    // S106: printing to the console is this class's purpose, not a logging shortcut.
+    @SuppressWarnings("java:S106")
     public ConsoleTransactionManager() {
         this(System.out);
     }

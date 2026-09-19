@@ -15,12 +15,12 @@ import org.junit.jupiter.api.Test;
 
 class LifecycleTest {
 
-    static final List<String> events = new ArrayList<>();
+    static final List<String> EVENTS = new ArrayList<>();
 
     static class Repository {
         @PreDestroy
         void close() {
-            events.add("destroy repository");
+            EVENTS.add("destroy repository");
         }
     }
 
@@ -33,12 +33,12 @@ class LifecycleTest {
 
         @PostConstruct
         void init() {
-            events.add("init service with repository " + (repository != null));
+            EVENTS.add("init service with repository " + (repository != null));
         }
 
         @PreDestroy
         void close() {
-            events.add("destroy service");
+            EVENTS.add("destroy service");
         }
     }
 
@@ -48,7 +48,7 @@ class LifecycleTest {
 
         @PreDestroy
         void close() {
-            events.add("destroy controller");
+            EVENTS.add("destroy controller");
         }
     }
 
@@ -56,7 +56,7 @@ class LifecycleTest {
     static class Request {
         @PreDestroy
         void close() {
-            events.add("destroy request");
+            EVENTS.add("destroy request");
         }
     }
 
@@ -79,7 +79,7 @@ class LifecycleTest {
 
     @BeforeEach
     void clearEvents() {
-        events.clear();
+        EVENTS.clear();
     }
 
     @Test
@@ -87,18 +87,18 @@ class LifecycleTest {
         try (var context = AnnotationApplicationContext.of(Service.class, Repository.class)) {
             context.getBean(Service.class);
 
-            assertThat(events).containsExactly("init service with repository true");
+            assertThat(EVENTS).containsExactly("init service with repository true");
         }
     }
 
     @Test
     void closeRunsPreDestroyInReverseCreationOrder() {
         var context = AnnotationApplicationContext.of(Controller.class, Service.class, Repository.class);
-        events.clear();
+        EVENTS.clear();
 
         context.close();
 
-        assertThat(events).containsExactly("destroy controller", "destroy service", "destroy repository");
+        assertThat(EVENTS).containsExactly("destroy controller", "destroy service", "destroy repository");
     }
 
     @Test
@@ -108,7 +108,7 @@ class LifecycleTest {
 
         context.close();
 
-        assertThat(events).isEmpty();
+        assertThat(EVENTS).isEmpty();
     }
 
     @Test
@@ -118,7 +118,7 @@ class LifecycleTest {
         context.close();
         context.close();
 
-        assertThat(events).containsExactly("destroy repository");
+        assertThat(EVENTS).containsExactly("destroy repository");
     }
 
     @Test
@@ -127,7 +127,7 @@ class LifecycleTest {
 
         context.close();
 
-        assertThat(events).containsExactly("destroy repository");
+        assertThat(EVENTS).containsExactly("destroy repository");
     }
 
     @Test
@@ -138,6 +138,6 @@ class LifecycleTest {
                 .hasMessageContaining("@PostConstruct")
                 .hasMessageContaining("cannot start");
 
-        assertThat(events).containsExactly("destroy repository");
+        assertThat(EVENTS).containsExactly("destroy repository");
     }
 }

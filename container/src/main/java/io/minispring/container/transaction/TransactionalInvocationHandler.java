@@ -48,6 +48,8 @@ final class TransactionalInvocationHandler implements InvocationHandler {
         return result;
     }
 
+    // S112: the proxy must rethrow exactly what the bean threw, whatever its type.
+    @SuppressWarnings("java:S112")
     private Object invokeTarget(Method method, Object[] args) throws Throwable {
         try {
             return targetMethods.getOrDefault(method, method).invoke(target, args);

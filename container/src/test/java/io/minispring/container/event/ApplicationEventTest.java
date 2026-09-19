@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class ApplicationEventTest {
 
-    static final List<String> received = new ArrayList<>();
+    static final List<String> RECEIVED = new ArrayList<>();
 
     static class OrderPlaced extends ApplicationEvent {
         final String item;
@@ -47,14 +47,14 @@ class ApplicationEventTest {
     static class ShippingListener implements ApplicationListener<OrderPlaced> {
         @Override
         public void onApplicationEvent(OrderPlaced event) {
-            received.add("ship " + event.item);
+            RECEIVED.add("ship " + event.item);
         }
     }
 
     static class EverythingListener implements ApplicationListener<ApplicationEvent> {
         @Override
         public void onApplicationEvent(ApplicationEvent event) {
-            received.add("saw " + event.getClass().getSimpleName());
+            RECEIVED.add("saw " + event.getClass().getSimpleName());
         }
     }
 
@@ -62,7 +62,7 @@ class ApplicationEventTest {
         @Override
         public void onApplicationEvent(ApplicationEvent event) {
             if (event instanceof ContextRefreshedEvent || event instanceof ContextClosedEvent) {
-                received.add(event.getClass().getSimpleName());
+                RECEIVED.add(event.getClass().getSimpleName());
             }
         }
     }
@@ -70,7 +70,7 @@ class ApplicationEventTest {
     static class Resource {
         @PreDestroy
         void close() {
-            received.add("destroy resource");
+            RECEIVED.add("destroy resource");
         }
     }
 
@@ -91,7 +91,7 @@ class ApplicationEventTest {
 
     @BeforeEach
     void clearReceivedEvents() {
-        received.clear();
+        RECEIVED.clear();
     }
 
     @Test
@@ -100,18 +100,18 @@ class ApplicationEventTest {
             context.publishEvent(new OrderCancelled(this));
             context.publishEvent(new OrderPlaced(this, "book"));
 
-            assertThat(received).containsExactly("ship book");
+            assertThat(RECEIVED).containsExactly("ship book");
         }
     }
 
     @Test
     void aListenerForTheBaseTypeReceivesEveryEvent() {
         try (var context = AnnotationApplicationContext.of(EverythingListener.class)) {
-            received.clear();
+            RECEIVED.clear();
 
             context.publishEvent(new OrderCancelled(this));
 
-            assertThat(received).containsExactly("saw OrderCancelled");
+            assertThat(RECEIVED).containsExactly("saw OrderCancelled");
         }
     }
 
@@ -120,7 +120,7 @@ class ApplicationEventTest {
         try (var context = AnnotationApplicationContext.of(OrderService.class, ShippingListener.class)) {
             context.getBean(OrderService.class).place("pen");
 
-            assertThat(received).containsExactly("ship pen");
+            assertThat(RECEIVED).containsExactly("ship pen");
         }
     }
 
@@ -130,7 +130,7 @@ class ApplicationEventTest {
 
         context.close();
 
-        assertThat(received).containsExactly("ContextRefreshedEvent", "ContextClosedEvent", "destroy resource");
+        assertThat(RECEIVED).containsExactly("ContextRefreshedEvent", "ContextClosedEvent", "destroy resource");
     }
 
     @Test

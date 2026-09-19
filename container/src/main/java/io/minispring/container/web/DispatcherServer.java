@@ -70,28 +70,31 @@ public final class DispatcherServer implements AutoCloseable {
 
     private static Map<String, Route> routesOf(ApplicationContext context) {
         Map<String, Route> routes = new HashMap<>();
-        context.getBeansWithAnnotation(RestController.class).forEach((name, controller) -> {
-            if (Proxy.isProxyClass(controller.getClass())) {
-                throw new IllegalStateException("Controller '" + name + "' is a proxy, so its mappings are hidden: move @Transactional methods into a service");
-            }
-            for (Method method : controller.getClass().getMethods()) {
-                GetMapping mapping = method.getAnnotation(GetMapping.class);
-                if (mapping == null) {
-                    continue;
-                }
-                if (method.getParameterCount() > 0) {
-                    throw new IllegalStateException("Handler %s.%s must not take parameters".formatted(name, method.getName()));
-                }
-                // A public method of a non-public controller class still needs this to be invoked.
-                method.trySetAccessible();
-                Route previous = routes.putIfAbsent(mapping.value(), new Route(controller, method));
-                if (previous != null) {
-                    throw new IllegalStateException("Path %s is mapped twice: %s and %s"
-                            .formatted(mapping.value(), previous.handler(), method));
-                }
-            }
-        });
+        context.getBeansWithAnnotation(RestController.class).forEach((name, controller) -> addRoutes(routes, name, controller));
         return Map.copyOf(routes);
+    }
+
+    // S3011: a public handler of a non-public controller class still needs this to be invoked.
+    @SuppressWarnings("java:S3011")
+    private static void addRoutes(Map<String, Route> routes, String name, Object controller) {
+        if (Proxy.isProxyClass(controller.getClass())) {
+            throw new IllegalStateException("Controller '" + name + "' is a proxy, so its mappings are hidden: move @Transactional methods into a service");
+        }
+        for (Method method : controller.getClass().getMethods()) {
+            GetMapping mapping = method.getAnnotation(GetMapping.class);
+            if (mapping == null) {
+                continue;
+            }
+            if (method.getParameterCount() > 0) {
+                throw new IllegalStateException("Handler %s.%s must not take parameters".formatted(name, method.getName()));
+            }
+            method.trySetAccessible();
+            Route previous = routes.putIfAbsent(mapping.value(), new Route(controller, method));
+            if (previous != null) {
+                throw new IllegalStateException("Path %s is mapped twice: %s and %s"
+                        .formatted(mapping.value(), previous.handler(), method));
+            }
+        }
     }
 
     private static void dispatch(HttpExchange exchange, Map<String, Route> routes) throws IOException {
@@ -107,7 +110,7 @@ public final class DispatcherServer implements AutoCloseable {
             }
         } catch (InvocationTargetException | IllegalAccessException e) {
             Throwable cause = e instanceof InvocationTargetException wrapper ? wrapper.getCause() : e;
-            LOGGER.log(System.Logger.Level.WARNING, "Handler for " + exchange.getRequestURI() + " failed", cause);
+            LOGGER.log(System.Logger.Level.WARNING, () -> "Handler for " + exchange.getRequestURI() + " failed", cause);
             respond(exchange, 500, "Internal server error");
         } finally {
             exchange.close();

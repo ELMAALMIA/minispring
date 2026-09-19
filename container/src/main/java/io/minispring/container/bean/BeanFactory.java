@@ -118,6 +118,8 @@ public final class BeanFactory {
         }
     }
 
+    // S3011: a DI container must call constructors that are not public; that is its whole job.
+    @SuppressWarnings("java:S3011")
     private Object instantiate(BeanDefinition definition) {
         Constructor<?> constructor = definition.constructor();
         Object[] arguments = Arrays.stream(constructor.getParameters())
@@ -168,10 +170,12 @@ public final class BeanFactory {
         } catch (ReflectiveOperationException e) {
             // A failing callback must not stop the remaining beans from releasing their resources.
             Throwable cause = e instanceof InvocationTargetException wrapper ? wrapper.getCause() : e;
-            LOGGER.log(System.Logger.Level.WARNING, "@PreDestroy method of bean '" + bean.definition().name() + "' failed", cause);
+            LOGGER.log(System.Logger.Level.WARNING, () -> "@PreDestroy method of bean '" + bean.definition().name() + "' failed", cause);
         }
     }
 
+    // S3011: lifecycle callbacks are usually package-private, as in Spring.
+    @SuppressWarnings("java:S3011")
     private static void invoke(Method method, Object bean) throws ReflectiveOperationException {
         method.setAccessible(true);
         method.invoke(bean);

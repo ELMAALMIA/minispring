@@ -34,7 +34,9 @@ public final class TransactionalProcessor implements BeanPostProcessor {
         this.transactionManager = Objects.requireNonNull(transactionManager, "transactionManager");
     }
 
+    // S3011: the proxy must be able to call methods of interfaces that are not public.
     @Override
+    @SuppressWarnings("java:S3011")
     public Object postProcessAfterInitialization(Object bean, String beanName) {
         Class<?> type = bean.getClass();
         List<Method> annotated = Arrays.stream(type.getDeclaredMethods())
@@ -55,7 +57,6 @@ public final class TransactionalProcessor implements BeanPostProcessor {
         for (Method method : interfaceMethodsOf(interfaces)) {
             Method implementation = implementationOf(type, method);
             interceptable.add(implementation);
-            // Lets the proxy call methods of interfaces that are not public.
             method.trySetAccessible();
             targetMethods.put(method, method);
             if (implementation.isAnnotationPresent(Transactional.class)) {

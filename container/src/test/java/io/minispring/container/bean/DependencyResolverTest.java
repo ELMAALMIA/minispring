@@ -63,8 +63,9 @@ class DependencyResolverTest {
     @Test
     void throwsWhenTwoBeansMatchAndNeitherIsPrimary() {
         DependencyResolver resolver = resolverFor(StripeGateway.class, PaypalGateway.class);
+        Dependency gateway = parameterOf(Invoicing.class, "invoicing");
 
-        assertThatThrownBy(() -> resolver.resolve(parameterOf(Invoicing.class, "invoicing")))
+        assertThatThrownBy(() -> resolver.resolve(gateway))
                 .isInstanceOf(AmbiguousBeanException.class)
                 .hasMessageContaining("2 beans of type " + PaymentGateway.class.getName())
                 .hasMessageContaining("parameter 'gateway' of bean 'invoicing'")
@@ -75,8 +76,9 @@ class DependencyResolverTest {
     @Test
     void throwsWhenSeveralCandidatesArePrimary() {
         DependencyResolver resolver = resolverFor(PreferredGateway.class, OtherPreferredGateway.class);
+        Dependency gateway = Dependency.on(PaymentGateway.class);
 
-        assertThatThrownBy(() -> resolver.resolve(Dependency.on(PaymentGateway.class)))
+        assertThatThrownBy(() -> resolver.resolve(gateway))
                 .isInstanceOf(AmbiguousBeanException.class)
                 .hasMessageContaining("are marked @Primary")
                 .hasMessageContaining("[preferredGateway, otherPreferredGateway]");
@@ -85,8 +87,9 @@ class DependencyResolverTest {
     @Test
     void throwsWhenNothingMatchesAndNamesTheTypeAndTheRequester() {
         DependencyResolver resolver = resolverFor();
+        Dependency gateway = parameterOf(Invoicing.class, "invoicing");
 
-        assertThatThrownBy(() -> resolver.resolve(parameterOf(Invoicing.class, "invoicing")))
+        assertThatThrownBy(() -> resolver.resolve(gateway))
                 .isInstanceOf(NoSuchBeanException.class)
                 .hasMessageContaining("No bean of type " + PaymentGateway.class.getName())
                 .hasMessageContaining("required by parameter 'gateway' of bean 'invoicing'");
@@ -95,8 +98,9 @@ class DependencyResolverTest {
     @Test
     void throwsWhenTheQualifierNamesNoCandidate() {
         DependencyResolver resolver = resolverFor(StripeGateway.class);
+        Dependency gateway = parameterOf(Checkout.class, "checkout");
 
-        assertThatThrownBy(() -> resolver.resolve(parameterOf(Checkout.class, "checkout")))
+        assertThatThrownBy(() -> resolver.resolve(gateway))
                 .isInstanceOf(NoSuchBeanException.class)
                 .hasMessageContaining("No bean named 'paypalGateway'")
                 .hasMessageContaining("Beans of that type: [stripeGateway]");

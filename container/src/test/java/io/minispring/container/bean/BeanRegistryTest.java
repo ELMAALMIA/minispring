@@ -33,8 +33,9 @@ class BeanRegistryTest {
     @Test
     void rejectsTwoBeansWithTheSameNameAndNamesBothClasses() {
         registry.register(reader.read(PaymentService.class));
+        BeanDefinition duplicate = reader.read(LegacyPayments.class);
 
-        assertThatThrownBy(() -> registry.register(reader.read(LegacyPayments.class)))
+        assertThatThrownBy(() -> registry.register(duplicate))
                 .isInstanceOf(BeanDefinitionException.class)
                 .hasMessageContaining("Duplicate bean name 'paymentService'")
                 .hasMessageContaining(PaymentService.class.getName())
