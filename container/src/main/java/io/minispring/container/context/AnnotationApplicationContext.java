@@ -31,7 +31,13 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private AnnotationApplicationContext(List<Class<?>> componentClasses) {
         BeanDefinitionReader reader = new BeanDefinitionReader();
         componentClasses.stream().map(reader::read).forEach(registry::register);
-        refresh();
+        try {
+            refresh();
+        } catch (RuntimeException e) {
+            // Beans created before the failure may hold resources: release them before giving up.
+            beanFactory.destroySingletons();
+            throw e;
+        }
     }
 
     /** Creates a context from every {@link Component} class in the given packages and their sub-packages. */

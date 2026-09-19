@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.minispring.container.annotation.Autowired;
 import io.minispring.container.annotation.Component;
+import io.minispring.container.annotation.PostConstruct;
+import io.minispring.container.annotation.PreDestroy;
 import io.minispring.container.annotation.Scope;
 import io.minispring.container.annotation.ScopeType;
 import io.minispring.container.exception.BeanDefinitionException;
@@ -60,6 +62,22 @@ class BeanDefinitionReaderTest {
         }
     }
 
+    static class InitWithParameter {
+        @PostConstruct
+        void init(String value) {
+        }
+    }
+
+    static class TwoDestroyMethods {
+        @PreDestroy
+        void first() {
+        }
+
+        @PreDestroy
+        void second() {
+        }
+    }
+
     @Test
     void derivesTheBeanNameFromTheClassName() {
         assertThat(reader.read(OrderService.class).name()).isEqualTo("orderService");
@@ -100,6 +118,21 @@ class BeanDefinitionReaderTest {
                 .hasMessageContaining("none is annotated with @Autowired")
                 .hasMessageContaining("AmbiguousConstructors()")
                 .hasMessageContaining("AmbiguousConstructors(OrderRepository)");
+    }
+
+    @Test
+    void rejectsALifecycleMethodThatTakesParameters() {
+        assertThatThrownBy(() -> reader.read(InitWithParameter.class))
+                .isInstanceOf(BeanDefinitionException.class)
+                .hasMessageContaining("@PostConstruct method")
+                .hasMessageContaining("init must not take parameters");
+    }
+
+    @Test
+    void rejectsTwoMethodsWithTheSameLifecycleAnnotation() {
+        assertThatThrownBy(() -> reader.read(TwoDestroyMethods.class))
+                .isInstanceOf(BeanDefinitionException.class)
+                .hasMessageContaining("2 @PreDestroy methods");
     }
 
     @Test

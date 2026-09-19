@@ -5,6 +5,7 @@ import io.minispring.container.exception.BeanNotOfRequiredTypeException;
 import io.minispring.container.exception.CircularDependencyException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -16,7 +17,7 @@ import java.util.SequencedSet;
 
 /**
  * Creates beans from their definitions. Creating a bean first creates everything its
- * constructor needs, recursively.
+ * constructor needs, recursively, then runs its {@code @PostConstruct} method.
  *
  * <p>A singleton is created once, then served from a cache. A prototype is created on every
  * request and never cached.
@@ -26,10 +27,18 @@ import java.util.SequencedSet;
  */
 public final class BeanFactory {
 
+    private static final System.Logger LOGGER = System.getLogger(BeanFactory.class.getName());
+
     private final DependencyResolver resolver;
     private final Map<String, Object> singletons = new HashMap<>();
+    /** Singletons in the order they finished creation: every bean appears after its dependencies. */
+    private final List<ManagedBean> creationOrder = new ArrayList<>();
     /** Beans being created, in the order they were requested. Used to detect and describe cycles. */
     private final SequencedSet<String> inCreation = new LinkedHashSet<>();
+
+    /** A singleton together with the definition that describes how to destroy it. */
+    private record ManagedBean(BeanDefinition definition, Object instance) {
+    }
 
     public BeanFactory(DependencyResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
@@ -51,6 +60,18 @@ public final class BeanFactory {
         };
     }
 
+    /**
+     * Runs the {@code @PreDestroy} methods of every singleton, in reverse creation order, so a
+     * bean is destroyed while the beans it depends on are still usable.
+     */
+    public void destroySingletons() {
+        for (ManagedBean bean : creationOrder.reversed()) {
+            bean.definition().preDestroy().ifPresent(method -> destroy(bean, method));
+        }
+        creationOrder.clear();
+        singletons.clear();
+    }
+
     private Object singleton(BeanDefinition definition) {
         // Not computeIfAbsent: creating a bean re-enters this method for its dependencies,
         // and a HashMap must not be modified while computeIfAbsent is running.
@@ -62,16 +83,17 @@ public final class BeanFactory {
         return singleton;
     }
 
-    public void destroySingletons() {
-        singletons.clear();
-    }
-
     private Object create(BeanDefinition definition) {
         if (!inCreation.add(definition.name())) {
             throw new CircularDependencyException(cycleBackTo(definition.name()));
         }
         try {
-            return instantiate(definition);
+            Object bean = instantiate(definition);
+            definition.postConstruct().ifPresent(method -> initialize(definition, bean, method));
+            if (definition.isSingleton()) {
+                creationOrder.add(new ManagedBean(definition, bean));
+            }
+            return bean;
         } finally {
             inCreation.remove(definition.name());
         }
@@ -90,6 +112,31 @@ public final class BeanFactory {
         } catch (ReflectiveOperationException e) {
             throw new BeanCreationException(definition.name(), "its constructor could not be invoked", e);
         }
+    }
+
+    private static void initialize(BeanDefinition definition, Object bean, Method method) {
+        try {
+            invoke(method, bean);
+        } catch (InvocationTargetException e) {
+            throw new BeanCreationException(definition.name(), "its @PostConstruct method threw an exception", e.getCause());
+        } catch (ReflectiveOperationException e) {
+            throw new BeanCreationException(definition.name(), "its @PostConstruct method could not be invoked", e);
+        }
+    }
+
+    private static void destroy(ManagedBean bean, Method method) {
+        try {
+            invoke(method, bean.instance());
+        } catch (ReflectiveOperationException e) {
+            // A failing callback must not stop the remaining beans from releasing their resources.
+            Throwable cause = e instanceof InvocationTargetException wrapper ? wrapper.getCause() : e;
+            LOGGER.log(System.Logger.Level.WARNING, "@PreDestroy method of bean '" + bean.definition().name() + "' failed", cause);
+        }
+    }
+
+    private static void invoke(Method method, Object bean) throws ReflectiveOperationException {
+        method.setAccessible(true);
+        method.invoke(bean);
     }
 
     private List<String> cycleBackTo(String name) {
