@@ -14,11 +14,13 @@ import io.minispring.container.transaction.ConsoleTransactionManager;
 import io.minispring.container.transaction.TransactionManager;
 import io.minispring.container.transaction.TransactionalProcessor;
 import java.lang.annotation.Annotation;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The container, assembled from its parts. It registers a definition for each component
@@ -28,6 +30,8 @@ import java.util.Map;
  * <p>This class is a facade. Each step lives in its own collaborator ({@link ClasspathScanner},
  * {@link BeanDefinitionReader}, {@link BeanRegistry}, {@link DependencyResolver} and
  * {@link BeanFactory}), so each one can be read and tested on its own.
+ *
+ * <p>Create one with {@link #builder()}, or with the {@link #scan} and {@link #of} shortcuts.
  */
 public final class AnnotationApplicationContext implements ApplicationContext {
 
@@ -36,36 +40,37 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private final BeanFactory beanFactory = new BeanFactory(resolver);
     private boolean closed;
 
-    private AnnotationApplicationContext(List<Class<?>> componentClasses) {
+    private AnnotationApplicationContext(Collection<Class<?>> componentClasses) {
         BeanDefinitionReader reader = new BeanDefinitionReader();
         componentClasses.stream().map(reader::read).forEach(registry::register);
+    }
+
+    /** Starts describing a context: packages to scan and classes to register. */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /** Creates a context from every {@link Component} class in the given packages and their sub-packages. */
+    public static AnnotationApplicationContext scan(String... basePackages) {
+        return builder().scan(basePackages).build();
+    }
+
+    /** Creates a context from exactly the given classes, without scanning. */
+    public static AnnotationApplicationContext of(Class<?>... componentClasses) {
+        return builder().register(componentClasses).build();
+    }
+
+    private void refresh() {
         try {
-            refresh();
+            registerPostProcessors();
+            registry.definitions().stream()
+                    .filter(BeanDefinition::isSingleton)
+                    .forEach(beanFactory::getBean);
         } catch (RuntimeException e) {
             // Beans created before the failure may hold resources: release them before giving up.
             beanFactory.destroySingletons();
             throw e;
         }
-    }
-
-    /** Creates a context from every {@link Component} class in the given packages and their sub-packages. */
-    public static AnnotationApplicationContext scan(String... basePackages) {
-        ClasspathScanner scanner = new ClasspathScanner();
-        return new AnnotationApplicationContext(Arrays.stream(basePackages)
-                .flatMap(basePackage -> scanner.scan(basePackage).stream())
-                .toList());
-    }
-
-    /** Creates a context from exactly the given classes, without scanning. */
-    public static AnnotationApplicationContext of(Class<?>... componentClasses) {
-        return new AnnotationApplicationContext(List.of(componentClasses));
-    }
-
-    private void refresh() {
-        registerPostProcessors();
-        registry.definitions().stream()
-                .filter(BeanDefinition::isSingleton)
-                .forEach(beanFactory::getBean);
     }
 
     /**
@@ -127,6 +132,38 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private void assertOpen() {
         if (closed) {
             throw new IllegalStateException("The application context is closed");
+        }
+    }
+
+    /**
+     * Collects component classes from scanned packages and explicit registrations, then builds
+     * and starts the context in one step. A context is therefore never visible half-started.
+     */
+    public static final class Builder {
+
+        private final ClasspathScanner scanner = new ClasspathScanner();
+        /** A set, so that a class both scanned and registered becomes a single bean. */
+        private final Set<Class<?>> componentClasses = new LinkedHashSet<>();
+
+        private Builder() {
+        }
+
+        public Builder scan(String... basePackages) {
+            for (String basePackage : basePackages) {
+                componentClasses.addAll(scanner.scan(basePackage));
+            }
+            return this;
+        }
+
+        public Builder register(Class<?>... classes) {
+            componentClasses.addAll(List.of(classes));
+            return this;
+        }
+
+        public AnnotationApplicationContext build() {
+            AnnotationApplicationContext context = new AnnotationApplicationContext(componentClasses);
+            context.refresh();
+            return context;
         }
     }
 }
