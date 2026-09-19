@@ -8,7 +8,8 @@ package io.minispring.container.exception;
  * message alone.
  */
 public sealed class ContainerException extends RuntimeException
-        permits AmbiguousBeanException, BeanDefinitionException, NoSuchBeanException {
+        permits AmbiguousBeanException, BeanCreationException, BeanDefinitionException,
+                BeanNotOfRequiredTypeException, CircularDependencyException, NoSuchBeanException {
 
     protected ContainerException(String message) {
         super(message);
