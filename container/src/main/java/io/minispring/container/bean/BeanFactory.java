@@ -18,7 +18,8 @@ import java.util.SequencedSet;
  * Creates beans from their definitions. Creating a bean first creates everything its
  * constructor needs, recursively.
  *
- * <p>Every bean is a singleton: it is created once, then served from a cache.
+ * <p>A singleton is created once, then served from a cache. A prototype is created on every
+ * request and never cached.
  *
  * <p>Not thread-safe. A context is built and used from a single thread, which keeps the
  * creation algorithm easy to follow.
@@ -44,6 +45,13 @@ public final class BeanFactory {
     }
 
     public Object getBean(BeanDefinition definition) {
+        return switch (definition.scope()) {
+            case SINGLETON -> singleton(definition);
+            case PROTOTYPE -> create(definition);
+        };
+    }
+
+    private Object singleton(BeanDefinition definition) {
         // Not computeIfAbsent: creating a bean re-enters this method for its dependencies,
         // and a HashMap must not be modified while computeIfAbsent is running.
         Object singleton = singletons.get(definition.name());

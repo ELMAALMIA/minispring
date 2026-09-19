@@ -4,6 +4,8 @@ import static java.util.stream.Collectors.joining;
 
 import io.minispring.container.annotation.Autowired;
 import io.minispring.container.annotation.Component;
+import io.minispring.container.annotation.Scope;
+import io.minispring.container.annotation.ScopeType;
 import io.minispring.container.exception.BeanDefinitionException;
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
@@ -13,7 +15,12 @@ import java.util.List;
 public final class BeanDefinitionReader {
 
     public BeanDefinition read(Class<?> type) {
-        return new BeanDefinition(nameOf(type), type, constructorOf(type));
+        return new BeanDefinition(nameOf(type), type, constructorOf(type), scopeOf(type));
+    }
+
+    private static ScopeType scopeOf(Class<?> type) {
+        Scope scope = type.getAnnotation(Scope.class);
+        return scope == null ? ScopeType.SINGLETON : scope.value();
     }
 
     private static String nameOf(Class<?> type) {

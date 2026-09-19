@@ -14,8 +14,8 @@ import java.util.List;
 
 /**
  * The container, assembled from its parts. It registers a definition for each component
- * class, then creates every bean eagerly, so configuration errors appear at startup rather
- * than at first use.
+ * class, then creates every singleton eagerly, so configuration errors appear at startup
+ * rather than at first use.
  *
  * <p>This class is a facade. Each step lives in its own collaborator ({@link ClasspathScanner},
  * {@link BeanDefinitionReader}, {@link BeanRegistry}, {@link DependencyResolver} and
@@ -48,7 +48,9 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     }
 
     private void refresh() {
-        registry.definitions().forEach(beanFactory::getBean);
+        registry.definitions().stream()
+                .filter(BeanDefinition::isSingleton)
+                .forEach(beanFactory::getBean);
     }
 
     @Override

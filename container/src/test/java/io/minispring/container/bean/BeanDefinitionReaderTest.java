@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.minispring.container.annotation.Autowired;
 import io.minispring.container.annotation.Component;
+import io.minispring.container.annotation.Scope;
+import io.minispring.container.annotation.ScopeType;
 import io.minispring.container.exception.BeanDefinitionException;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +27,10 @@ class BeanDefinitionReaderTest {
     }
 
     static class URLParser {
+    }
+
+    @Scope(ScopeType.PROTOTYPE)
+    static class PrototypeService {
     }
 
     static class TwoConstructors {
@@ -67,6 +73,12 @@ class BeanDefinitionReaderTest {
     @Test
     void keepsANameThatStartsWithAnAcronymUnchanged() {
         assertThat(reader.read(URLParser.class).name()).isEqualTo("URLParser");
+    }
+
+    @Test
+    void readsTheScopeAndDefaultsToSingleton() {
+        assertThat(reader.read(OrderService.class).scope()).isEqualTo(ScopeType.SINGLETON);
+        assertThat(reader.read(PrototypeService.class).scope()).isEqualTo(ScopeType.PROTOTYPE);
     }
 
     @Test
