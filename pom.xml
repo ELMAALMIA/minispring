@@ -14,6 +14,7 @@
 
     <modules>
         <module>container</module>
+        <module>demo</module>
     </modules>
 
     <properties>
@@ -24,6 +25,8 @@
         <junit.version>5.14.0</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <jacoco.version>0.8.13</jacoco.version>
+        <!-- Extra arguments for the demos; see the README to serve HTTP. -->
+        <demo.args></demo.args>
 
         <!-- SonarCloud; the organization and project key are passed in by CI. -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -92,6 +95,17 @@
                     <groupId>org.sonarsource.scanner.maven</groupId>
                     <artifactId>sonar-maven-plugin</artifactId>
                     <version>5.1.0.4751</version>
+                </plugin>
+                <plugin>
+                    <!-- Only the demo modules opt in to exec:exec; everywhere else it is a no-op. -->
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.6.3</version>
+                    <configuration>
+                        <skip>true</skip>
+                        <!-- Required parameters are validated even when skipped. -->
+                        <executable>java</executable>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

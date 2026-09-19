@@ -1,0 +1,15 @@
+Repository ready
+BEGIN    OrderServiceImpl.placeOrder
+AUDIT    order placed: book
+SHIP     book
+COMMIT   OrderServiceImpl.placeOrder
+Order placed: book
+BEGIN    OrderServiceImpl.placeOrder
+ROLLBACK OrderServiceImpl.placeOrder
+Rejected: item must not be blank
+AUDIT    order placed: pen
+SHIP     pen
+AUDIT    order placed: ink
+SHIP     ink
+Orders: book, pen, ink
+Repository closed

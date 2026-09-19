@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.minispring</groupId>
+        <artifactId>minispring-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>minispring-demo</artifactId>
+    <name>minispring demo</name>
+    <description>A small order service running on the minispring container.</description>
+
+    <properties>
+        <!-- The demo's output is the product: printing to stdout is intended here. -->
+        <sonar.issue.ignore.multicriteria>stdout</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria.stdout.ruleKey>java:S106</sonar.issue.ignore.multicriteria.stdout.ruleKey>
+        <sonar.issue.ignore.multicriteria.stdout.resourceKey>**/*.java</sonar.issue.ignore.multicriteria.stdout.resourceKey>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.minispring</groupId>
+            <artifactId>minispring-container</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <!-- Run with: ./mvnw -q -pl demo -am compile exec:exec -->
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                    <executable>${java.home}/bin/java</executable>
+                    <arguments>
+                        <argument>-classpath</argument>
+                        <classpath/>
+                        <argument>io.minispring.demo.DemoApplication</argument>
+                        <argument>${demo.args}</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
