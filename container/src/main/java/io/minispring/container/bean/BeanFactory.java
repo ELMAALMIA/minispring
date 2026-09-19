@@ -17,7 +17,8 @@ import java.util.SequencedSet;
 
 /**
  * Creates beans from their definitions. Creating a bean first creates everything its
- * constructor needs, recursively, then runs its {@code @PostConstruct} method.
+ * constructor needs, recursively, then runs its {@code @PostConstruct} method, and finally
+ * passes it through every {@link BeanPostProcessor}.
  *
  * <p>A singleton is created once, then served from a cache. A prototype is created on every
  * request and never cached.
@@ -30,6 +31,7 @@ public final class BeanFactory {
     private static final System.Logger LOGGER = System.getLogger(BeanFactory.class.getName());
 
     private final DependencyResolver resolver;
+    private final List<BeanPostProcessor> postProcessors = new ArrayList<>();
     private final Map<String, Object> singletons = new HashMap<>();
     /** Singletons in the order they finished creation: every bean appears after its dependencies. */
     private final List<ManagedBean> creationOrder = new ArrayList<>();
@@ -51,6 +53,11 @@ public final class BeanFactory {
             throw new BeanNotOfRequiredTypeException(definition.name(), requiredType, bean);
         }
         return requiredType.cast(bean);
+    }
+
+    /** Registers a post-processor for every bean created from now on. */
+    public void addPostProcessor(BeanPostProcessor postProcessor) {
+        postProcessors.add(Objects.requireNonNull(postProcessor, "postProcessor"));
     }
 
     public Object getBean(BeanDefinition definition) {
@@ -91,9 +98,11 @@ public final class BeanFactory {
             Object bean = instantiate(definition);
             definition.postConstruct().ifPresent(method -> initialize(definition, bean, method));
             if (definition.isSingleton()) {
+                // The raw bean, not its proxy: @PreDestroy must reach the object itself.
                 creationOrder.add(new ManagedBean(definition, bean));
             }
-            return bean;
+            // Post-processing comes last, so a proxy always wraps a fully initialized bean.
+            return postProcess(definition, bean);
         } finally {
             inCreation.remove(definition.name());
         }
@@ -122,6 +131,17 @@ public final class BeanFactory {
         } catch (ReflectiveOperationException e) {
             throw new BeanCreationException(definition.name(), "its @PostConstruct method could not be invoked", e);
         }
+    }
+
+    private Object postProcess(BeanDefinition definition, Object bean) {
+        Object result = bean;
+        for (BeanPostProcessor postProcessor : postProcessors) {
+            result = postProcessor.postProcessAfterInitialization(result, definition.name());
+            if (result == null) {
+                throw new BeanCreationException(definition.name(), postProcessor.getClass().getName() + " returned null");
+            }
+        }
+        return result;
     }
 
     private static void destroy(ManagedBean bean, Method method) {

@@ -4,6 +4,7 @@ import io.minispring.container.annotation.Component;
 import io.minispring.container.bean.BeanDefinition;
 import io.minispring.container.bean.BeanDefinitionReader;
 import io.minispring.container.bean.BeanFactory;
+import io.minispring.container.bean.BeanPostProcessor;
 import io.minispring.container.bean.BeanRegistry;
 import io.minispring.container.bean.Dependency;
 import io.minispring.container.bean.DependencyResolver;
@@ -54,9 +55,16 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     }
 
     private void refresh() {
+        registerPostProcessors();
         registry.definitions().stream()
                 .filter(BeanDefinition::isSingleton)
                 .forEach(beanFactory::getBean);
+    }
+
+    /** Post-processors are beans too, but they must exist before the beans they process. */
+    private void registerPostProcessors() {
+        registry.definitionsOfType(BeanPostProcessor.class)
+                .forEach(definition -> beanFactory.addPostProcessor(beanFactory.getBean(definition, BeanPostProcessor.class)));
     }
 
     @Override
