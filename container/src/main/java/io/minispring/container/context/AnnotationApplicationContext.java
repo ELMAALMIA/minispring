@@ -8,6 +8,10 @@ import io.minispring.container.bean.BeanPostProcessor;
 import io.minispring.container.bean.BeanRegistry;
 import io.minispring.container.bean.Dependency;
 import io.minispring.container.bean.DependencyResolver;
+import io.minispring.container.event.ApplicationEvent;
+import io.minispring.container.event.ApplicationEventMulticaster;
+import io.minispring.container.event.ApplicationEventPublisher;
+import io.minispring.container.event.ApplicationListener;
 import io.minispring.container.exception.NoSuchBeanException;
 import io.minispring.container.scan.ClasspathScanner;
 import io.minispring.container.transaction.ConsoleTransactionManager;
@@ -38,6 +42,7 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private final BeanRegistry registry = new BeanRegistry();
     private final DependencyResolver resolver = new DependencyResolver(registry);
     private final BeanFactory beanFactory = new BeanFactory(resolver);
+    private final ApplicationEventMulticaster eventMulticaster = new ApplicationEventMulticaster(this::listeners);
     private boolean closed;
 
     private AnnotationApplicationContext(Collection<Class<?>> componentClasses) {
@@ -61,11 +66,14 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     }
 
     private void refresh() {
+        beanFactory.registerResolvableDependency(ApplicationContext.class, this);
+        beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, this);
         try {
             registerPostProcessors();
             registry.definitions().stream()
                     .filter(BeanDefinition::isSingleton)
                     .forEach(beanFactory::getBean);
+            publishEvent(new ContextRefreshedEvent(this));
         } catch (RuntimeException e) {
             // Beans created before the failure may hold resources: release them before giving up.
             beanFactory.destroySingletons();
@@ -122,11 +130,29 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     }
 
     @Override
+    public void publishEvent(ApplicationEvent event) {
+        assertOpen();
+        eventMulticaster.publishEvent(event);
+    }
+
+    @Override
     public void close() {
-        if (!closed) {
+        if (closed) {
+            return;
+        }
+        try {
+            publishEvent(new ContextClosedEvent(this));
+        } finally {
             closed = true;
             beanFactory.destroySingletons();
         }
+    }
+
+    /** Listener beans, looked up on each publication; see {@link ApplicationEventMulticaster}. */
+    private List<ApplicationListener<?>> listeners() {
+        return registry.definitionsOfType(ApplicationListener.class).stream()
+                .<ApplicationListener<?>>map(definition -> beanFactory.getBean(definition, ApplicationListener.class))
+                .toList();
     }
 
     private void assertOpen() {

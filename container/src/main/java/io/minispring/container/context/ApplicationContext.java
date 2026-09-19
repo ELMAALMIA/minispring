@@ -1,15 +1,17 @@
 package io.minispring.container.context;
 
+import io.minispring.container.event.ApplicationEventPublisher;
 import io.minispring.container.exception.NoSuchBeanException;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 
 /**
- * The container's public face: the place where application code looks beans up.
+ * The container's public face: the place where application code looks beans up and
+ * publishes events.
  *
  * <p>Closing the context ends the life of every singleton it manages.
  */
-public interface ApplicationContext extends AutoCloseable {
+public interface ApplicationContext extends ApplicationEventPublisher, AutoCloseable {
 
     /**
      * Returns the single bean assignable to {@code type}.

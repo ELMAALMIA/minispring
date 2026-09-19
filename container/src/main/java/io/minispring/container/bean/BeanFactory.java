@@ -6,6 +6,7 @@ import io.minispring.container.exception.CircularDependencyException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,6 +33,7 @@ public final class BeanFactory {
 
     private final DependencyResolver resolver;
     private final List<BeanPostProcessor> postProcessors = new ArrayList<>();
+    private final Map<Class<?>, Object> resolvableDependencies = new HashMap<>();
     private final Map<String, Object> singletons = new HashMap<>();
     /** Singletons in the order they finished creation: every bean appears after its dependencies. */
     private final List<ManagedBean> creationOrder = new ArrayList<>();
@@ -53,6 +55,14 @@ public final class BeanFactory {
             throw new BeanNotOfRequiredTypeException(definition.name(), requiredType, bean);
         }
         return requiredType.cast(bean);
+    }
+
+    /**
+     * Makes {@code value} injectable wherever exactly {@code type} is required, without making it
+     * a bean. This is how beans receive the context itself or its event publisher.
+     */
+    public void registerResolvableDependency(Class<?> type, Object value) {
+        resolvableDependencies.put(type, Objects.requireNonNull(value, "value"));
     }
 
     /** Registers a post-processor for every bean created from now on. */
@@ -111,7 +121,7 @@ public final class BeanFactory {
     private Object instantiate(BeanDefinition definition) {
         Constructor<?> constructor = definition.constructor();
         Object[] arguments = Arrays.stream(constructor.getParameters())
-                .map(parameter -> getBean(resolver.resolve(Dependency.of(parameter, definition.name())), parameter.getType()))
+                .map(parameter -> argumentFor(parameter, definition))
                 .toArray();
         try {
             constructor.setAccessible(true);
@@ -121,6 +131,14 @@ public final class BeanFactory {
         } catch (ReflectiveOperationException e) {
             throw new BeanCreationException(definition.name(), "its constructor could not be invoked", e);
         }
+    }
+
+    private Object argumentFor(Parameter parameter, BeanDefinition definition) {
+        Object infrastructure = resolvableDependencies.get(parameter.getType());
+        if (infrastructure != null) {
+            return infrastructure;
+        }
+        return getBean(resolver.resolve(Dependency.of(parameter, definition.name())), parameter.getType());
     }
 
     private static void initialize(BeanDefinition definition, Object bean, Method method) {
