@@ -23,6 +23,7 @@
 
         <junit.version>5.14.0</junit.version>
         <assertj.version>3.27.7</assertj.version>
+        <jacoco.version>0.8.13</jacoco.version>
     </properties>
 
     <dependencyManagement>
@@ -78,10 +79,35 @@
                     <artifactId>maven-install-plugin</artifactId>
                     <version>3.1.4</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <!-- Coverage for every module; the XML report is what Sonar reads. -->
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
