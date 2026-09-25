@@ -14,6 +14,7 @@
 
     <modules>
         <module>container</module>
+        <module>autoconfigure</module>
         <module>demo</module>
         <module>demo-spring</module>
     </modules>
