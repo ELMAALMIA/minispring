@@ -1,0 +1,14 @@
+--- the application declares nothing
+NOTIFY   order placed
+--- the application declares its own notifier
+SLACK    order placed
+--- the starter is turned off by a property
+no notifier is available
+CONDITION EVALUATION REPORT
+
+Positive matches:
+  none
+
+Negative matches:
+  NotifierAutoConfiguration
+    - property 'minispring.notifier.enabled' is 'false', expected 'true'

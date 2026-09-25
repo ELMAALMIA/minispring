@@ -17,6 +17,7 @@
         <module>autoconfigure</module>
         <module>demo</module>
         <module>demo-spring</module>
+        <module>demo-autoconfigure</module>
     </modules>
 
     <properties>

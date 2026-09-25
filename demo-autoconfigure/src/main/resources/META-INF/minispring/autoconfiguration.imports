@@ -1,0 +1,2 @@
+# Auto-configurations this jar offers; one class per line.
+io.minispring.starter.NotifierAutoConfiguration
