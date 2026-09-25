@@ -13,6 +13,8 @@ import io.minispring.container.event.ApplicationEvent;
 import io.minispring.container.event.ApplicationEventMulticaster;
 import io.minispring.container.event.ApplicationEventPublisher;
 import io.minispring.container.event.ApplicationListener;
+import io.minispring.container.env.Environment;
+import io.minispring.container.env.StandardEnvironment;
 import io.minispring.container.exception.NoSuchBeanException;
 import io.minispring.container.scan.ClasspathScanner;
 import io.minispring.container.transaction.ConsoleTransactionManager;
@@ -25,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -44,9 +47,11 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private final DependencyResolver resolver = new DependencyResolver(registry);
     private final BeanFactory beanFactory = new BeanFactory(registry, resolver);
     private final ApplicationEventMulticaster eventMulticaster = new ApplicationEventMulticaster(this::listeners);
+    private final Environment environment;
     private boolean closed;
 
-    private AnnotationApplicationContext(Collection<Class<?>> componentClasses) {
+    private AnnotationApplicationContext(Collection<Class<?>> componentClasses, Environment environment) {
+        this.environment = environment;
         BeanDefinitionReader reader = new BeanDefinitionReader();
         for (Class<?> componentClass : componentClasses) {
             registry.register(reader.read(componentClass));
@@ -71,9 +76,15 @@ public final class AnnotationApplicationContext implements ApplicationContext {
         return builder().register(componentClasses).build();
     }
 
+    @Override
+    public Environment getEnvironment() {
+        return environment;
+    }
+
     private void refresh() {
         beanFactory.registerResolvableDependency(ApplicationContext.class, this);
         beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, this);
+        beanFactory.registerResolvableDependency(Environment.class, environment);
         try {
             registerPostProcessors();
             registry.definitions().stream()
@@ -176,8 +187,15 @@ public final class AnnotationApplicationContext implements ApplicationContext {
         private final ClasspathScanner scanner = new ClasspathScanner();
         /** A set, so that a class both scanned and registered becomes a single bean. */
         private final Set<Class<?>> componentClasses = new LinkedHashSet<>();
+        private Environment environment = new StandardEnvironment();
 
         private Builder() {
+        }
+
+        /** Replaces the default environment, for example to force a property in a test. */
+        public Builder environment(Environment environment) {
+            this.environment = Objects.requireNonNull(environment, "environment");
+            return this;
         }
 
         public Builder scan(String... basePackages) {
@@ -193,7 +211,7 @@ public final class AnnotationApplicationContext implements ApplicationContext {
         }
 
         public AnnotationApplicationContext build() {
-            AnnotationApplicationContext context = new AnnotationApplicationContext(componentClasses);
+            AnnotationApplicationContext context = new AnnotationApplicationContext(componentClasses, environment);
             context.refresh();
             return context;
         }

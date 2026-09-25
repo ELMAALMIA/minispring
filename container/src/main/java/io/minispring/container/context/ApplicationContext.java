@@ -1,5 +1,6 @@
 package io.minispring.container.context;
 
+import io.minispring.container.env.Environment;
 import io.minispring.container.event.ApplicationEventPublisher;
 import io.minispring.container.exception.NoSuchBeanException;
 import java.lang.annotation.Annotation;
@@ -31,6 +32,9 @@ public interface ApplicationContext extends ApplicationEventPublisher, AutoClose
 
     /** Returns every bean whose class carries {@code annotationType}, keyed by bean name. */
     Map<String, Object> getBeansWithAnnotation(Class<? extends Annotation> annotationType);
+
+    /** The properties this context is configured with. */
+    Environment getEnvironment();
 
     /** Closes the context. Unlike {@link AutoCloseable#close()}, it never throws a checked exception. */
     @Override
