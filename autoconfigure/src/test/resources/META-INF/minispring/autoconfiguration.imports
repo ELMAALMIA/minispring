@@ -1,0 +1,4 @@
+# Auto-configurations offered by the test fixtures
+io.minispring.autoconfigure.fixtures.ReportAutoConfiguration
+
+io.minispring.autoconfigure.fixtures.ClockAutoConfiguration

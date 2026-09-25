@@ -5,6 +5,7 @@ import io.minispring.container.bean.BeanDefinitionReader;
 import io.minispring.container.bean.BeanRegistry;
 import io.minispring.container.condition.ConditionEvaluator;
 import io.minispring.container.env.Environment;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -43,11 +44,20 @@ public record RegistrationContext(
             return false;
         }
         registry.register(reader.read(componentClass));
-        if (componentClass.isAnnotationPresent(Configuration.class)) {
+        if (isConfiguration(componentClass)) {
             reader.readBeanMethods(componentClass).stream()
                     .filter(definition -> conditions.evaluate(definition.annotatedElement()).matches())
                     .forEach(registry::register);
         }
         return true;
+    }
+
+    /**
+     * True for {@link Configuration} itself, and for annotations that carry it, such as an
+     * {@code @AutoConfiguration} defined outside the container.
+     */
+    private static boolean isConfiguration(Class<?> componentClass) {
+        return componentClass.isAnnotationPresent(Configuration.class) || Arrays.stream(componentClass.getAnnotations())
+                .anyMatch(annotation -> annotation.annotationType().isAnnotationPresent(Configuration.class));
     }
 }
