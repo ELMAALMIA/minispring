@@ -3,6 +3,7 @@ package io.minispring.container.condition;
 import io.minispring.container.exception.BeanDefinitionException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -57,9 +58,13 @@ public final class ConditionEvaluator {
         return conditions.computeIfAbsent(type, ConditionEvaluator::newCondition);
     }
 
+    // S3011: a condition is usually a small package-private class next to the beans it guards.
+    @SuppressWarnings("java:S3011")
     private static Condition newCondition(Class<? extends Condition> type) {
         try {
-            return type.getDeclaredConstructor().newInstance();
+            Constructor<? extends Condition> constructor = type.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            return constructor.newInstance();
         } catch (ReflectiveOperationException e) {
             throw new BeanDefinitionException("Condition %s needs a constructor without arguments".formatted(type.getName()), e);
         }

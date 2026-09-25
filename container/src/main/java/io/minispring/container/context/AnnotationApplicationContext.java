@@ -23,6 +23,7 @@ import io.minispring.container.transaction.ConsoleTransactionManager;
 import io.minispring.container.transaction.TransactionManager;
 import io.minispring.container.transaction.TransactionalProcessor;
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -50,33 +51,22 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private final BeanFactory beanFactory = new BeanFactory(registry, resolver);
     private final ApplicationEventMulticaster eventMulticaster = new ApplicationEventMulticaster(this::listeners);
     private final Environment environment;
-    private final ConditionEvaluator conditionEvaluator;
+    private final RegistrationContext registrationContext;
+    private final List<BeanDefinitionRegistrar> registrars;
     private boolean closed;
 
-    private AnnotationApplicationContext(Collection<Class<?>> componentClasses, Environment environment) {
+    private AnnotationApplicationContext(Collection<Class<?>> componentClasses, Environment environment,
+                                         List<BeanDefinitionRegistrar> registrars) {
         this.environment = environment;
-        this.conditionEvaluator = new ConditionEvaluator(
-                new ConditionContext(registry, environment, Thread.currentThread().getContextClassLoader()));
-        BeanDefinitionReader reader = new BeanDefinitionReader();
-        for (Class<?> componentClass : componentClasses) {
-            registerIfConditionsMatch(reader, componentClass);
-        }
-    }
-
-    /**
-     * A bean whose conditions do not match is simply not registered. A rejected
-     * {@code @Configuration} class takes its {@code @Bean} methods with it.
-     */
-    private void registerIfConditionsMatch(BeanDefinitionReader reader, Class<?> componentClass) {
-        if (!conditionEvaluator.evaluate(componentClass).matches()) {
-            return;
-        }
-        registry.register(reader.read(componentClass));
-        if (componentClass.isAnnotationPresent(Configuration.class)) {
-            reader.readBeanMethods(componentClass).stream()
-                    .filter(definition -> conditionEvaluator.evaluate(definition.annotatedElement()).matches())
-                    .forEach(registry::register);
-        }
+        this.registrars = List.copyOf(registrars);
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        this.registrationContext = new RegistrationContext(
+                registry,
+                new BeanDefinitionReader(),
+                new ConditionEvaluator(new ConditionContext(registry, environment, classLoader)),
+                environment,
+                classLoader);
+        componentClasses.forEach(registrationContext::registerBeans);
     }
 
     /** Starts describing a context: packages to scan and classes to register. */
@@ -104,6 +94,8 @@ public final class AnnotationApplicationContext implements ApplicationContext {
         beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, this);
         beanFactory.registerResolvableDependency(Environment.class, environment);
         try {
+            // Registrars run after the application's own beans, which is what lets them fill gaps.
+            registrars.forEach(registrar -> registrar.registerDefinitions(registrationContext));
             registerPostProcessors();
             registry.definitions().stream()
                     .filter(BeanDefinition::isSingleton)
@@ -205,9 +197,16 @@ public final class AnnotationApplicationContext implements ApplicationContext {
         private final ClasspathScanner scanner = new ClasspathScanner();
         /** A set, so that a class both scanned and registered becomes a single bean. */
         private final Set<Class<?>> componentClasses = new LinkedHashSet<>();
+        private final List<BeanDefinitionRegistrar> registrars = new ArrayList<>();
         private Environment environment = new StandardEnvironment();
 
         private Builder() {
+        }
+
+        /** Adds a registrar, which contributes definitions after the classes registered here. */
+        public Builder apply(BeanDefinitionRegistrar registrar) {
+            registrars.add(Objects.requireNonNull(registrar, "registrar"));
+            return this;
         }
 
         /** Replaces the default environment, for example to force a property in a test. */
@@ -229,7 +228,7 @@ public final class AnnotationApplicationContext implements ApplicationContext {
         }
 
         public AnnotationApplicationContext build() {
-            AnnotationApplicationContext context = new AnnotationApplicationContext(componentClasses, environment);
+            AnnotationApplicationContext context = new AnnotationApplicationContext(componentClasses, environment, registrars);
             context.refresh();
             return context;
         }
