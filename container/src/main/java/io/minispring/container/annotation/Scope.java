@@ -6,10 +6,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Sets the scope of a bean. Beans without this annotation are singletons. */
+/** Sets the scope of a bean, on its class or on its {@link Bean} method. Beans without this annotation are singletons. */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
+@Target({ElementType.TYPE, ElementType.METHOD})
 public @interface Scope {
 
     ScopeType value();

@@ -14,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.SequencedSet;
 
 /**
@@ -41,8 +42,8 @@ public final class BeanFactory {
     /** Beans being created, in the order they were requested. Used to detect and describe cycles. */
     private final SequencedSet<String> inCreation = new LinkedHashSet<>();
 
-    /** A singleton together with the definition that describes how to destroy it. */
-    private record ManagedBean(BeanDefinition definition, Object instance) {
+    /** A singleton together with the callback that destroys it. */
+    private record ManagedBean(String name, Object instance, Optional<Method> preDestroy) {
     }
 
     public BeanFactory(BeanRegistry registry, DependencyResolver resolver) {
@@ -85,7 +86,7 @@ public final class BeanFactory {
      */
     public void destroySingletons() {
         for (ManagedBean bean : creationOrder.reversed()) {
-            bean.definition().preDestroy().ifPresent(method -> destroy(bean, method));
+            bean.preDestroy().ifPresent(method -> destroy(bean, method));
         }
         creationOrder.clear();
         singletons.clear();
@@ -108,10 +109,11 @@ public final class BeanFactory {
         }
         try {
             Object bean = instantiate(definition);
-            definition.postConstruct().ifPresent(method -> initialize(definition, bean, method));
+            LifecycleMethods callbacks = callbacksFor(definition, bean);
+            callbacks.postConstruct().ifPresent(method -> initialize(definition, bean, method));
             if (definition.isSingleton()) {
                 // The raw bean, not its proxy: @PreDestroy must reach the object itself.
-                creationOrder.add(new ManagedBean(definition, bean));
+                creationOrder.add(new ManagedBean(definition.name(), bean, callbacks.preDestroy()));
             }
             // Post-processing comes last, so a proxy always wraps a fully initialized bean.
             return postProcess(definition, bean);
@@ -162,6 +164,14 @@ public final class BeanFactory {
         }
     }
 
+    /**
+     * A {@code @Bean} method often declares an interface, which hides the callbacks of the class
+     * it actually returned, so they are read again from the instance.
+     */
+    private static LifecycleMethods callbacksFor(BeanDefinition definition, Object bean) {
+        return bean.getClass() == definition.type() ? definition.lifecycle() : LifecycleMethods.of(bean.getClass());
+    }
+
     private Object argumentFor(Parameter parameter, BeanDefinition definition) {
         Object infrastructure = resolvableDependencies.get(parameter.getType());
         if (infrastructure != null) {
@@ -197,7 +207,7 @@ public final class BeanFactory {
         } catch (ReflectiveOperationException e) {
             // A failing callback must not stop the remaining beans from releasing their resources.
             Throwable cause = e instanceof InvocationTargetException wrapper ? wrapper.getCause() : e;
-            LOGGER.log(System.Logger.Level.WARNING, () -> "@PreDestroy method of bean '" + bean.definition().name() + "' failed", cause);
+            LOGGER.log(System.Logger.Level.WARNING, () -> "@PreDestroy method of bean '" + bean.name() + "' failed", cause);
         }
     }
 

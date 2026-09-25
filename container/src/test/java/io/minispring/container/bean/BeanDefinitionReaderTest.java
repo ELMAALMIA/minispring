@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.minispring.container.annotation.Autowired;
+import io.minispring.container.annotation.Bean;
 import io.minispring.container.annotation.Component;
+import io.minispring.container.annotation.Configuration;
 import io.minispring.container.annotation.PostConstruct;
 import io.minispring.container.annotation.PreDestroy;
 import io.minispring.container.annotation.Scope;
@@ -59,6 +61,34 @@ class BeanDefinitionReaderTest {
 
         @Autowired
         TwoAutowiredConstructors(OrderRepository repository) {
+        }
+    }
+
+    @Configuration
+    static class SampleConfig {
+        @Bean
+        String clock() {
+            return "12:00";
+        }
+
+        @Bean("custom")
+        Integer port() {
+            return 8080;
+        }
+    }
+
+    @Configuration
+    static class StaticBeanConfig {
+        @Bean
+        static String clock() {
+            return "12:00";
+        }
+    }
+
+    @Configuration
+    static class VoidBeanConfig {
+        @Bean
+        void nothing() {
         }
     }
 
@@ -118,6 +148,27 @@ class BeanDefinitionReaderTest {
                 .hasMessageContaining("none is annotated with @Autowired")
                 .hasMessageContaining("AmbiguousConstructors()")
                 .hasMessageContaining("AmbiguousConstructors(OrderRepository)");
+    }
+
+    @Test
+    void readsBeanMethodsOfAConfigurationClassSortedByName() {
+        assertThat(reader.readBeanMethods(SampleConfig.class))
+                .extracting(BeanDefinition::name)
+                .containsExactly("clock", "custom");
+    }
+
+    @Test
+    void rejectsAStaticBeanMethod() {
+        assertThatThrownBy(() -> reader.readBeanMethods(StaticBeanConfig.class))
+                .isInstanceOf(BeanDefinitionException.class)
+                .hasMessageContaining("must not be static");
+    }
+
+    @Test
+    void rejectsABeanMethodThatReturnsNothing() {
+        assertThatThrownBy(() -> reader.readBeanMethods(VoidBeanConfig.class))
+                .isInstanceOf(BeanDefinitionException.class)
+                .hasMessageContaining("must return the bean it creates");
     }
 
     @Test

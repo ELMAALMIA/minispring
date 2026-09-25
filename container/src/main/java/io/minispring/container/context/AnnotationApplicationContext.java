@@ -1,6 +1,7 @@
 package io.minispring.container.context;
 
 import io.minispring.container.annotation.Component;
+import io.minispring.container.annotation.Configuration;
 import io.minispring.container.bean.BeanDefinition;
 import io.minispring.container.bean.BeanDefinitionReader;
 import io.minispring.container.bean.BeanFactory;
@@ -47,7 +48,12 @@ public final class AnnotationApplicationContext implements ApplicationContext {
 
     private AnnotationApplicationContext(Collection<Class<?>> componentClasses) {
         BeanDefinitionReader reader = new BeanDefinitionReader();
-        componentClasses.stream().map(reader::read).forEach(registry::register);
+        for (Class<?> componentClass : componentClasses) {
+            registry.register(reader.read(componentClass));
+            if (componentClass.isAnnotationPresent(Configuration.class)) {
+                reader.readBeanMethods(componentClass).forEach(registry::register);
+            }
+        }
     }
 
     /** Starts describing a context: packages to scan and classes to register. */
