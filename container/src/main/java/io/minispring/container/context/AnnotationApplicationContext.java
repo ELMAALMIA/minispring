@@ -9,6 +9,8 @@ import io.minispring.container.bean.BeanPostProcessor;
 import io.minispring.container.bean.BeanRegistry;
 import io.minispring.container.bean.Dependency;
 import io.minispring.container.bean.DependencyResolver;
+import io.minispring.container.condition.ConditionContext;
+import io.minispring.container.condition.ConditionEvaluator;
 import io.minispring.container.event.ApplicationEvent;
 import io.minispring.container.event.ApplicationEventMulticaster;
 import io.minispring.container.event.ApplicationEventPublisher;
@@ -48,16 +50,32 @@ public final class AnnotationApplicationContext implements ApplicationContext {
     private final BeanFactory beanFactory = new BeanFactory(registry, resolver);
     private final ApplicationEventMulticaster eventMulticaster = new ApplicationEventMulticaster(this::listeners);
     private final Environment environment;
+    private final ConditionEvaluator conditionEvaluator;
     private boolean closed;
 
     private AnnotationApplicationContext(Collection<Class<?>> componentClasses, Environment environment) {
         this.environment = environment;
+        this.conditionEvaluator = new ConditionEvaluator(
+                new ConditionContext(registry, environment, Thread.currentThread().getContextClassLoader()));
         BeanDefinitionReader reader = new BeanDefinitionReader();
         for (Class<?> componentClass : componentClasses) {
-            registry.register(reader.read(componentClass));
-            if (componentClass.isAnnotationPresent(Configuration.class)) {
-                reader.readBeanMethods(componentClass).forEach(registry::register);
-            }
+            registerIfConditionsMatch(reader, componentClass);
+        }
+    }
+
+    /**
+     * A bean whose conditions do not match is simply not registered. A rejected
+     * {@code @Configuration} class takes its {@code @Bean} methods with it.
+     */
+    private void registerIfConditionsMatch(BeanDefinitionReader reader, Class<?> componentClass) {
+        if (!conditionEvaluator.evaluate(componentClass).matches()) {
+            return;
+        }
+        registry.register(reader.read(componentClass));
+        if (componentClass.isAnnotationPresent(Configuration.class)) {
+            reader.readBeanMethods(componentClass).stream()
+                    .filter(definition -> conditionEvaluator.evaluate(definition.annotatedElement()).matches())
+                    .forEach(registry::register);
         }
     }
 

@@ -2,6 +2,7 @@ package io.minispring.container.bean;
 
 import io.minispring.container.annotation.Primary;
 import io.minispring.container.annotation.ScopeType;
+import java.lang.reflect.AnnotatedElement;
 import java.util.Objects;
 
 /**
@@ -41,5 +42,13 @@ public record BeanDefinition(
 
     public boolean isSingleton() {
         return scope == ScopeType.SINGLETON;
+    }
+
+    /** The class or {@code @Bean} method the annotations of this bean live on. */
+    public AnnotatedElement annotatedElement() {
+        return switch (source) {
+            case BeanSource.OfConstructor ignored -> type;
+            case BeanSource.OfFactoryMethod factoryMethod -> factoryMethod.method();
+        };
     }
 }
