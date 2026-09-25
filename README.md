@@ -5,9 +5,9 @@
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ELMAALMIA_minispring&metric=coverage)](https://sonarcloud.io/summary/overall?id=ELMAALMIA_minispring)
 [![Maintainability](https://sonarcloud.io/api/project_badges/measure?project=ELMAALMIA_minispring&metric=sqale_rating)](https://sonarcloud.io/summary/overall?id=ELMAALMIA_minispring)
 
-A dependency injection container written from scratch in Java 21 to make Spring's machinery visible: component scanning, constructor injection, scopes, lifecycle callbacks, application events and proxy-based `@Transactional`.
+A dependency injection container written from scratch in Java 21 to make Spring's machinery visible: component scanning, constructor injection, scopes, lifecycle callbacks, application events, proxy-based `@Transactional`, and conditional auto-configuration.
 
-**It is not a Spring replacement.** It is about 900 lines of code with no runtime dependencies, meant to be read top to bottom in an afternoon. Every design decision should be explainable in a sentence, and this README tries to do exactly that.
+**It is not a Spring replacement.** The container is about 1,200 lines of code with no runtime dependencies, meant to be read top to bottom in an afternoon, and auto-configuration adds 300 more in a separate module. Every design decision should be explainable in a sentence, and this README tries to do exactly that.
 
 ```java
 public interface Greeter {
@@ -42,6 +42,7 @@ try (var context = AnnotationApplicationContext.scan("com.example")) {
 - [The lifecycle](#the-lifecycle)
 - [Architecture and design patterns](#architecture-and-design-patterns)
 - [How it works, concept by concept](#how-it-works-concept-by-concept)
+- [Auto-configuration, and how @Conditional decides](#auto-configuration-and-how-conditional-decides)
 - [Side by side with real Spring](#side-by-side-with-real-spring)
 - [Quality gates](#quality-gates)
 - [Limitations](#limitations)
@@ -52,17 +53,20 @@ try (var context = AnnotationApplicationContext.scan("com.example")) {
 The build needs JDK 21; the Maven wrapper brings its own Maven.
 
 ```bash
-./mvnw verify                                      # 79 tests, coverage gate included
+./mvnw verify                                      # 129 tests, coverage gates included
 ./mvnw -q -pl demo -am compile exec:exec           # the order demo on minispring
 ./mvnw -q -pl demo -am compile exec:exec -Ddemo.args=--serve   # ...and serve GET /orders on port 8080
+./mvnw -q -pl demo-autoconfigure -am compile exec:exec         # when an auto-configured bean appears, and when it steps aside
 scripts/compare-with-spring.sh                     # run both demos and diff their output
 ```
 
 | Module | What it is |
 |---|---|
 | `container` | The container itself. Zero runtime dependencies, only the JDK. |
+| `autoconfigure` | Conditional auto-configuration, written with the container's extension points. |
 | `demo` | An order service running on minispring. |
 | `demo-spring` | The same business classes running on Spring Boot 3.5, as a behavioral reference. |
+| `demo-autoconfigure` | A starter and an application showing what decides whether a default bean appears. |
 
 ## The lifecycle
 
@@ -86,14 +90,21 @@ graph TD
 
 ```
 io.minispring.container
-├── annotation/   @Component, @Autowired, @Qualifier, @Primary, @Scope, @PostConstruct, @PreDestroy, @Transactional
+├── annotation/   @Component, @Autowired, @Qualifier, @Primary, @Scope, @PostConstruct, @PreDestroy, @Transactional, @Configuration, @Bean
 ├── scan/         ClasspathScanner: finds @Component classes on disk
-├── bean/         BeanDefinition, BeanDefinitionReader, BeanRegistry, DependencyResolver, BeanFactory, BeanPostProcessor
-├── context/      ApplicationContext, AnnotationApplicationContext (+ Builder), context events
+├── bean/         BeanDefinition, BeanSource, BeanDefinitionReader, BeanRegistry, DependencyResolver, BeanFactory, BeanPostProcessor
+├── condition/    Condition, @Conditional, ConditionEvaluator: whether a bean should exist at all
+├── env/          Environment, StandardEnvironment, PropertySource
+├── context/      ApplicationContext, AnnotationApplicationContext (+ Builder), BeanDefinitionRegistrar, context events
 ├── event/        ApplicationEvent, ApplicationListener, ApplicationEventPublisher, ApplicationEventMulticaster
 ├── transaction/  TransactionalProcessor, TransactionManager, ConsoleTransactionManager
 ├── web/          @RestController, @GetMapping, DispatcherServer
 └── exception/    a sealed hierarchy rooted at ContainerException
+
+io.minispring.autoconfigure          (its own module, built on the container's extension points)
+├── condition/    @ConditionalOnClass, @ConditionalOnBean, @ConditionalOnMissingBean, @ConditionalOnProperty
+├── AutoConfigurationImports, AutoConfigurationSorter, AutoConfigurationRegistrar
+└── ConditionEvaluationReport
 ```
 
 Dependencies only point downwards: `context` assembles `scan`, `bean`, `event` and `transaction`, and none of those know about `context`. Each class has one job, so each one has its own focused test class.
@@ -112,6 +123,9 @@ Patterns are used where they remove a real problem, and named in the Javadoc whe
 | **Chain of responsibility** | `BeanPostProcessor` pipeline | Each processor can inspect, wrap or replace a bean, then pass it on. |
 | **Observer** | `ApplicationEventMulticaster`, `ApplicationListener`, `ApplicationEventPublisher` | Publishers and listeners only share an event type; neither knows the other exists. |
 | **Front controller** | `DispatcherServer` | One HTTP handler that dispatches every request through a route table. |
+| **Strategy** (again) | `Condition` | Each rule for "should this bean exist?" is one small class, and applications can add their own. |
+| **Plugin / extension point** | `BeanDefinitionRegistrar` | Auto-configuration contributes definitions without the container knowing it exists. |
+| **Sealed variants** | `BeanSource` | A bean comes from a constructor or a factory method, and the compiler checks every branch. |
 | **Value object** | `BeanDefinition`, `Dependency` (records) | Immutable descriptions that are safe to share and compare. |
 
 Patterns deliberately **not** used:
@@ -202,6 +216,87 @@ Beans receive an `ApplicationEventPublisher`, or even the `ApplicationContext` i
 
 `DispatcherServer` shows that MVC dispatching is a lookup table: exact path → `@GetMapping` method, served by the JDK's built-in `HttpServer` on virtual threads, bound to localhost. It deliberately has no path variables, no JSON and no servlet container.
 
+## Auto-configuration, and how `@Conditional` decides
+
+Auto-configuration is not a special power of the container. It is a **plugin written with the container's extension points**, which is why it lives in its own module and the container knows nothing about it:
+
+```java
+try (var context = AnnotationApplicationContext.builder()
+        .scan("com.example")                          // the application's own beans
+        .apply(new AutoConfigurationRegistrar())      // ...then whatever the classpath offers
+        .build()) {
+```
+
+### Beans that come from a method
+
+An auto-configuration configures types it did not write, so a bean must be able to come from a **method** rather than a constructor. A `BeanDefinition` therefore carries a sealed `BeanSource`, either a constructor or a `@Bean` method, and the factory covers both in one switch.
+
+```java
+@Configuration
+class AppConfig {
+    @Bean
+    Clock clock() { return new FixedClock("12:00"); }
+
+    @Bean
+    Report report(Clock clock) { ... }   // ask for dependencies as parameters
+}
+```
+
+**Never call one `@Bean` method from another.** It is a plain Java call, so it builds a second instance the container knows nothing about. Spring hides this by generating a CGLIB subclass of the configuration class that intercepts those calls; this container does not, and a test documents the difference.
+
+### The pipeline
+
+```mermaid
+graph TD
+    A["The application's beans are registered"] --> B["Read META-INF/minispring/<br/>autoconfiguration.imports"]
+    B --> C["Sort by @AutoConfigureOrder,<br/>@AutoConfigureBefore / After"]
+    C --> D["For each auto-configuration:<br/>evaluate its conditions"]
+    D -->|matches| E["Register it and evaluate<br/>each @Bean method"]
+    D -->|does not match| F["Skip it, and record why"]
+    E --> G["Singletons are created"]
+    F --> G
+```
+
+Two rules make the whole thing work:
+
+1. **Conditions look at definitions, never at instances.** Deciding whether a bean should exist must not create beans, otherwise the question would answer itself.
+2. **Auto-configurations are registered last.** That is the only reason `@ConditionalOnMissingBean` can mean "unless the application declared its own", and it is why Spring's documentation warns that the annotation is only reliable inside an auto-configuration. A test pins that order dependence down.
+
+### The conditions
+
+| Annotation | Matches when |
+|---|---|
+| `@ConditionalOnClass(name = ...)` | every named class is on the classpath |
+| `@ConditionalOnMissingClass(name = ...)` | none of them is |
+| `@ConditionalOnBean(Type.class)` | a bean of that type is already registered |
+| `@ConditionalOnMissingBean` | no bean of that type is, so the default applies |
+| `@ConditionalOnProperty(name = ..., havingValue = ..., matchIfMissing = ...)` | the property says so |
+
+Each one is an ordinary `@Conditional` with a name, so the container needs no knowledge of them, and an application can write its own `Condition` in a dozen lines.
+
+**Why classes are named as strings.** `@ConditionalOnClass(name = "com.zaxxer.hikari.HikariDataSource")` looks clumsier than a `Class` literal, but reading a `Class` attribute that points at an absent class fails, which is exactly the case the annotation exists for. Spring solves it by reading the annotation from the bytecode with ASM instead of with reflection. That single constraint explains a dependency people rarely question.
+
+### Discovery through an index file
+
+Auto-configurations are listed, one class name per line, in `META-INF/minispring/autoconfiguration.imports`. A starter works by being on the classpath, and nothing else. Two details are worth stating: resources are readable **inside jars**, unlike the directories the class scanner walks, and reading a short index costs nothing next to scanning every class. Spring Boot uses an index file for the same two reasons, and it is a large part of why its startup is not worse than it is.
+
+### "Why is my bean not there?"
+
+Every decision is recorded with its reason, which turns the most common auto-configuration question into a printout. Set `minispring.autoconfigure.report=true`, as you would pass `--debug` to Spring Boot:
+
+```
+CONDITION EVALUATION REPORT
+
+Positive matches:
+  none
+
+Negative matches:
+  NotifierAutoConfiguration
+    - property 'minispring.notifier.enabled' is 'false', expected 'true'
+```
+
+The `demo-autoconfigure` module runs the same application three times, with the starter's default, with the application's own bean, and with the starter turned off, and its test locks that output down.
+
 ## Side by side with real Spring
 
 `demo` and `demo-spring` contain **the same business classes**. The only differences are the import lines, which `diff` confirms:
@@ -247,8 +342,8 @@ That covers multi-level constructor injection, interface resolution, `@PostConst
 
 ## Quality gates
 
-- **79 tests** written with JUnit 5 and AssertJ only, and no mocks: when a test would need a mock, the design is too coupled. Tests read as sentences (`throwsWhenTwoBeansMatchAndNeitherIsPrimary`), and they check **error messages**, not just exception types.
-- **Coverage gate:** JaCoCo fails the build if the container drops below 90% line or 80% branch coverage. Today it is at 94.8% and 87.6%.
+- **129 tests** written with JUnit 5 and AssertJ only, and no mocks: when a test would need a mock, the design is too coupled. Tests read as sentences (`throwsWhenTwoBeansMatchAndNeitherIsPrimary`), and they check **error messages**, not just exception types.
+- **Coverage gate:** JaCoCo fails the build if the container or the auto-configuration module drops below 90% line or 80% branch coverage. Today they are at 94.4% / 86.4% and 96.8% / 95.6%.
 - **Strict compilation:** `-Xlint:all` with zero warnings, and the enforcer rejects the wrong JDK and non-converging dependencies.
 - **SonarCloud:** CI runs the Sonar scanner and fails on a red quality gate. The few places that intentionally break a rule, such as reflection that bypasses access checks (the whole job of a DI container), are suppressed with a one-line justification rather than hidden. To enable it on your fork:
   1. Sign in to [sonarcloud.io](https://sonarcloud.io) with GitHub and import the repository.
@@ -262,12 +357,14 @@ That covers multi-level constructor injection, interface resolution, `@PostConst
 
 These are decisions, not accidents:
 
-- **Constructor injection only.** Field and setter injection are out of scope, and they are what make cycles "resolvable" in Spring.
+- **Constructor injection only.** Field and setter injection are out of scope, and they are what make cycles "resolvable" in Spring. It also means a bean is built from a constructor or a `@Bean` method, and nothing else.
 - **JDK proxies only.** Transactional beans need an interface; CGLIB class proxies are out of scope.
 - **Directories only.** The scanner does not read classes packaged in JAR files.
 - **Inherited lifecycle methods are ignored.** Only methods declared on the bean's own class count.
 - **Not thread-safe.** A context is meant to be built and used from one thread, which keeps the creation algorithm readable. (Request handling in the web layer is concurrent, but it only reads singletons that already exist.)
-- **No XML, no conditional auto-configuration, no servlet container.** The web layer handles exact-path GET requests with no-argument handlers.
+- **No XML and no servlet container.** The web layer handles exact-path GET requests with no-argument handlers.
+- **Auto-configuration stays small on purpose:** classes are named as strings in `@ConditionalOnClass`, there is no `@ConfigurationProperties` binding, no `@Import`, no profiles, and a registrar is added explicitly rather than discovered, so a reader can see where it comes from.
+- **A `@Bean` method calling another one** builds a second, unmanaged instance, because there is no CGLIB. Pass dependencies as parameters, which is the better habit in Spring too.
 
 ## Read the commit history
 
@@ -277,4 +374,4 @@ The history *is* the tutorial. Each commit adds one concept with its tests, in t
 git log --reverse --oneline
 ```
 
-It starts from an empty build, adds scanning, bean definitions, dependency resolution, constructor injection, scopes, lifecycle callbacks, post-processors and proxies, then the web layer, the builder, events, the quality gates and finally the two demos. Check out any commit and the build is green.
+It starts from an empty build, adds scanning, bean definitions, dependency resolution, constructor injection, scopes, lifecycle callbacks, post-processors and proxies, then the web layer, the builder, events, the quality gates, the demos, and finally `@Bean` methods, the environment, conditions and auto-configuration. Check out any commit and the build is green.
