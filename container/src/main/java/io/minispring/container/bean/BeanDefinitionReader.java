@@ -26,7 +26,7 @@ public final class BeanDefinitionReader {
         return new BeanDefinition(
                 nameOf(type),
                 type,
-                constructorOf(type),
+                new BeanSource.OfConstructor(constructorOf(type)),
                 scopeOf(type),
                 lifecycleMethod(type, PostConstruct.class),
                 lifecycleMethod(type, PreDestroy.class));

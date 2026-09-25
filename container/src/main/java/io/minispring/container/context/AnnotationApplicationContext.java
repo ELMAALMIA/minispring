@@ -41,7 +41,7 @@ public final class AnnotationApplicationContext implements ApplicationContext {
 
     private final BeanRegistry registry = new BeanRegistry();
     private final DependencyResolver resolver = new DependencyResolver(registry);
-    private final BeanFactory beanFactory = new BeanFactory(resolver);
+    private final BeanFactory beanFactory = new BeanFactory(registry, resolver);
     private final ApplicationEventMulticaster eventMulticaster = new ApplicationEventMulticaster(this::listeners);
     private boolean closed;
 

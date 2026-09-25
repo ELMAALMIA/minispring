@@ -31,6 +31,7 @@ public final class BeanFactory {
 
     private static final System.Logger LOGGER = System.getLogger(BeanFactory.class.getName());
 
+    private final BeanRegistry registry;
     private final DependencyResolver resolver;
     private final List<BeanPostProcessor> postProcessors = new ArrayList<>();
     private final Map<Class<?>, Object> resolvableDependencies = new HashMap<>();
@@ -44,7 +45,8 @@ public final class BeanFactory {
     private record ManagedBean(BeanDefinition definition, Object instance) {
     }
 
-    public BeanFactory(DependencyResolver resolver) {
+    public BeanFactory(BeanRegistry registry, DependencyResolver resolver) {
+        this.registry = Objects.requireNonNull(registry, "registry");
         this.resolver = Objects.requireNonNull(resolver, "resolver");
     }
 
@@ -118,13 +120,19 @@ public final class BeanFactory {
         }
     }
 
-    // S3011: a DI container must call constructors that are not public; that is its whole job.
-    @SuppressWarnings("java:S3011")
     private Object instantiate(BeanDefinition definition) {
-        Constructor<?> constructor = definition.constructor();
-        Object[] arguments = Arrays.stream(constructor.getParameters())
+        Object[] arguments = Arrays.stream(definition.source().executable().getParameters())
                 .map(parameter -> argumentFor(parameter, definition))
                 .toArray();
+        return switch (definition.source()) {
+            case BeanSource.OfConstructor(Constructor<?> constructor) -> construct(definition, constructor, arguments);
+            case BeanSource.OfFactoryMethod(String owner, Method method) -> callFactoryMethod(definition, owner, method, arguments);
+        };
+    }
+
+    // S3011: a DI container must call constructors that are not public; that is its whole job.
+    @SuppressWarnings("java:S3011")
+    private static Object construct(BeanDefinition definition, Constructor<?> constructor, Object[] arguments) {
         try {
             constructor.setAccessible(true);
             return constructor.newInstance(arguments);
@@ -132,6 +140,25 @@ public final class BeanFactory {
             throw new BeanCreationException(definition.name(), "its constructor threw an exception", e.getCause());
         } catch (ReflectiveOperationException e) {
             throw new BeanCreationException(definition.name(), "its constructor could not be invoked", e);
+        }
+    }
+
+    // S3011: a @Bean method is often package-private, as in Spring.
+    @SuppressWarnings("java:S3011")
+    private Object callFactoryMethod(BeanDefinition definition, String configurationBeanName, Method method, Object[] arguments) {
+        Object configuration = getBean(registry.find(configurationBeanName)
+                .orElseThrow(() -> new BeanCreationException(definition.name(), "its configuration bean '" + configurationBeanName + "' is not registered")));
+        try {
+            method.setAccessible(true);
+            Object bean = method.invoke(configuration, arguments);
+            if (bean == null) {
+                throw new BeanCreationException(definition.name(), "its @Bean method returned null");
+            }
+            return bean;
+        } catch (InvocationTargetException e) {
+            throw new BeanCreationException(definition.name(), "its @Bean method threw an exception", e.getCause());
+        } catch (ReflectiveOperationException e) {
+            throw new BeanCreationException(definition.name(), "its @Bean method could not be invoked", e);
         }
     }
 

@@ -101,14 +101,14 @@ class BeanDefinitionReaderTest {
 
     @Test
     void selectsTheOnlyConstructorWithoutNeedingAutowired() throws NoSuchMethodException {
-        assertThat(reader.read(OrderService.class).constructor())
-                .isEqualTo(OrderService.class.getDeclaredConstructor(OrderRepository.class));
+        assertThat(reader.read(OrderService.class).source())
+                .isEqualTo(new BeanSource.OfConstructor(OrderService.class.getDeclaredConstructor(OrderRepository.class)));
     }
 
     @Test
     void selectsTheAutowiredConstructorAmongSeveral() throws NoSuchMethodException {
-        assertThat(reader.read(TwoConstructors.class).constructor())
-                .isEqualTo(TwoConstructors.class.getDeclaredConstructor(OrderRepository.class));
+        assertThat(reader.read(TwoConstructors.class).source())
+                .isEqualTo(new BeanSource.OfConstructor(TwoConstructors.class.getDeclaredConstructor(OrderRepository.class)));
     }
 
     @Test

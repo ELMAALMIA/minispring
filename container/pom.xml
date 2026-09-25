@@ -13,6 +13,10 @@
     <artifactId>minispring-container</artifactId>
     <name>minispring container</name>
     <description>The container itself. It has no runtime dependencies, only the JDK.</description>
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+    </properties>
 
     <dependencies>
         <dependency>
