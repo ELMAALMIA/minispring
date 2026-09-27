@@ -322,6 +322,57 @@ section(1, "Spring, then Spring Boot", "What actually changed between the two",
 section(2, "The minimum a container needs", "Strip Spring down to what cannot be removed",
   "Transition: now that we know where the container sits, let us define what it must do. Five minutes. This part sets the vocabulary for the rest: definition, registry, factory, post-processor.");
 
+/* ---------- 7bis. Wiring by hand ---------- */
+{
+  const s = light();
+  title(s, "Before the container: you wire it yourself", "Everybody has written this");
+  code(s, [
+    "var repository = new InMemoryOrderRepository();",
+    "var audit      = new AuditService();",
+    "var service    = new OrderServiceImpl(repository, audit, publisher);",
+    "var controller = new OrderController(service);",
+  ], { x: 0.5, y: 1.5, w: 9, h: 1.5, size: 13 });
+  bullets(s, [
+    "It works — until the graph has forty objects instead of four",
+    "Every caller has to know the whole graph, just to build one object",
+    "Swapping an implementation means editing every place that says new",
+    "And someone has to decide who gets closed, in which order",
+  ], { y: 3.15, h: 1.3, size: 15 });
+  callout(s, "The problem was never typing new. It is that the caller has to know everything.", { y: 4.55, color: WARN });
+  s.addNotes(
+    "Start here, not at the container. Ask the room to picture this code in a real service with forty beans.\n\n" +
+    "Take the four bullets one by one, they are the four pains that justify everything that follows. The last one matters more than people expect: lifecycle and shutdown order is exactly what @PreDestroy solves later in the talk.\n\n" +
+    "Do not say 'boilerplate'. Say 'the caller has to know everything'. That is the real problem, and it sets up the next slide."
+  );
+}
+
+/* ---------- 7ter. What you gain ---------- */
+{
+  const s = light();
+  title(s, "What you actually gain", "It is not fewer lines. It is who chooses.");
+  code(s, [
+    "@Component",
+    "class OrderServiceImpl implements OrderService {",
+    "    OrderServiceImpl(OrderRepository repository, AuditService audit) { ... }",
+    "}",
+    "",
+    "try (var context = AnnotationApplicationContext.scan(\"com.example\")) {",
+    "    context.getBean(OrderController.class);   // the graph is built for you",
+    "}",
+  ], { x: 0.5, y: 1.5, w: 9, h: 2.4, size: 13 });
+  bullets(s, [
+    "The class still asks for what it needs: nothing is hidden, it is all in the constructor",
+    "But it no longer chooses which implementation it gets — that is the inversion of control",
+    "So a test builds it with a fake repository, in one line, with no framework at all",
+  ], { y: 3.95, h: 1.0, size: 14 });
+  callout(s, "Dependency injection is a design decision. The container is only the tool that carries it out.", { y: 4.95 });
+  s.addNotes(
+    "The sentence to land, slowly: the class still asks for what it needs, it simply no longer decides what it gets.\n\n" +
+    "The third bullet is the argument that convinces seniors: constructor injection means your tests need no framework. new OrderServiceImpl(fakeRepository, audit) and you are done. That is why field injection is discouraged — it takes that away.\n\n" +
+    "Close with the callout: the pattern is the point, the container is the plumbing. Then move to what that plumbing needs."
+  );
+}
+
 /* ---------- 8. A container is a Map ---------- */
 {
   const s = light();
@@ -555,6 +606,55 @@ section(4, "Every annotation, and who reads it", "minispring, Spring, and the XM
     "The punchline is the last row, and it is the bridge to part 6. XML could describe beans; it could not describe a decision that depends on the classpath and on what you already declared.\n\n" +
     "If someone objects that XML had profiles: true, and profiles are the closest ancestor of @Conditional. Say it, it shows you know the history.\n\n" +
     "Note for yourself: several class names are identical on both sides because I deliberately mirrored Spring's naming. Point it out, it helps people navigate the real Spring source afterwards."
+  );
+}
+
+/* ---------- 17bis. The same bean, three ways ---------- */
+{
+  const s = light();
+  title(s, "The same bean, written three ways", "Different syntax, identical BeanDefinition");
+  s.addText("2008 — XML", {
+    x: 0.5, y: 1.45, w: 4.4, h: 0.25, isTextBox: true, fontFace: BODY, fontSize: 13, bold: true, color: MUTED, margin: 0,
+  });
+  code(s, [
+    "<bean id=\"orderService\"",
+    "      class=\"shop.OrderServiceImpl\">",
+    "  <constructor-arg ref=\"orderRepository\"/>",
+    "</bean>",
+    "",
+    "<bean id=\"orderRepository\"",
+    "      class=\"shop.InMemoryOrderRepository\"",
+    "      init-method=\"open\"",
+    "      destroy-method=\"close\"",
+    "      scope=\"singleton\"/>",
+  ], { x: 0.5, y: 1.7, w: 4.4, h: 2.9, size: 9 });
+  s.addText("Today — annotations", {
+    x: 5.1, y: 1.42, w: 4.4, h: 0.25, isTextBox: true, fontFace: BODY, fontSize: 13, bold: true, color: ACCENT, margin: 0,
+  });
+  code(s, [
+    "@Component",
+    "class OrderServiceImpl implements OrderService {",
+    "    OrderServiceImpl(OrderRepository repo) { }",
+    "}",
+  ], { x: 5.1, y: 1.7, w: 4.4, h: 1.15, size: 9 });
+  s.addText("Today — Java configuration", {
+    x: 5.1, y: 3.0, w: 4.4, h: 0.25, isTextBox: true, fontFace: BODY, fontSize: 13, bold: true, color: ACCENT, margin: 0,
+  });
+  code(s, [
+    "@Configuration",
+    "class AppConfig {",
+    "    @Bean",
+    "    OrderService orderService(OrderRepository r) {",
+    "        return new OrderServiceImpl(r);",
+    "    }",
+    "}",
+  ], { x: 5.1, y: 3.28, w: 4.4, h: 1.32, size: 9 });
+  callout(s, "The container reads all three into the same object. XML did not disappear because it was wrong, but because the metadata sat far from the code.", { y: 4.75 });
+  s.addNotes(
+    "This is the slide for everyone who maintains a legacy project, and there are always more of them than you think.\n\n" +
+    "Point at the three XML attributes that survived as annotations: init-method became @PostConstruct, destroy-method became @PreDestroy, scope became @Scope. Same model, different spelling.\n\n" +
+    "Then be fair to XML: it kept configuration outside the code, which is exactly what you still want for things that change per environment. What killed it was putting the wiring there too, far from the class it described.\n\n" +
+    "Bolt: Java configuration is the interesting middle ground — it is code, so it is typed and refactorable, and it stays outside the class, so a library class you do not own can still become a bean."
   );
 }
 
