@@ -739,6 +739,31 @@ section(4, "Every annotation, and who reads it", "minispring, Spring, and the XM
   );
 }
 
+/* ---------- 21bis. CGLIB subclasses ---------- */
+{
+  const s = light();
+  title(s, "Spring's other proxy: a generated subclass", "Same idea, different trick — and it is what makes @Configuration work");
+  code(s, [
+    "OrderServiceImpl$$SpringCGLIB$$0  extends  OrderServiceImpl",
+  ], { x: 0.5, y: 1.5, w: 9, h: 0.6, size: 13 });
+  table(s, [
+    header(["", "JDK dynamic proxy (minispring)", "CGLIB subclass (Spring Boot default)"]),
+    ["How", "implements the interfaces", "extends the class, overrides its methods"],
+    ["Requires", "an interface", "a class and methods that are not final"],
+    [mono("getBean(Impl.class)"), "fails: the proxy is not that type", "works: the proxy is a subclass"],
+    ["Built by", "the JDK", "bytecode generated at run time, with ASM"],
+    ["Self-invocation", "bypassed", "bypassed too — nothing changes"],
+  ], { y: 2.25, colW: [1.9, 3.4, 3.7], size: 11 });
+  callout(s, "It also rewrites @Configuration classes, so one @Bean method calling another returns the singleton. That is the one thing minispring cannot do.", { y: 4.55 });
+  s.addNotes(
+    "This slide answers the question someone always asks after the proxy section: Spring proxies classes that have no interface, so how?\n\n" +
+    "Explain the mechanism in one sentence: CGLIB writes a new class that extends yours and overrides every method to call the interceptor first.\n\n" +
+    "Then the consequences, in order: no interface needed; a final class or a final, private or static method is silently never intercepted; getBean on the implementation class works because the proxy really is one; and the proxy is built without calling your constructor, using Objenesis, so its own fields stay null — it is only a switchboard in front of the real bean.\n\n" +
+    "The line that ties the talk together is the callout: this is also what rewrites @Configuration classes, which is exactly the limitation my container documents with a test.\n\n" +
+    "Three facts for questions: CGLIB has been repackaged inside spring-core since Spring 3.2, so it is not a dependency you add; it is built on ASM; and it does not work in a GraalVM native image, which is part of why Spring 6 introduced AOT processing."
+  );
+}
+
 /* ---------- 22. Lifecycle recap ---------- */
 {
   diagramSlide("d1-lifecycle.png",
