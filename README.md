@@ -368,7 +368,7 @@ These are decisions, not accidents:
 
 ## The talk
 
-[docs/presentation](docs/presentation) holds a 35-slide deck with speaker notes, "Spring is not magic", built from this code: what an annotation really is, which class reads each one here and in Spring, and how `@Conditional` decides what gets wired. The diagrams and the generator script are there too.
+[docs/presentation](docs/presentation) holds two 45-minute talks built from this code, with speaker notes on every slide and a PDF of each. **Part 1, "how a bean is born"**: what an annotation really is at the bytecode level, and which class reads each one here, in Spring, and in the XML it replaced. **Part 2, "what happens to your bean"**: post-processors, proxies, the self-invocation bug, and how `@Conditional` decides what gets wired. The diagrams and the generator script are there too.
 
 ## Read the commit history
 
