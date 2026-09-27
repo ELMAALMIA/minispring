@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body>
+<h1>What happens when the context starts</h1>
+<div class="sub">AnnotationApplicationContext.scan("com.example")</div>
+<div class="row" style="gap:10px">
+  <div class="col">
+    <div class="box blue rot1">1. Scan the package<div class="small">ClasspathScanner</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box blue rot2">2. Read definitions<div class="small">BeanDefinitionReader</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box purple rot1">3. Create post-processors first<div class="small">BeanPostProcessor</div></div>
+  </div>
+  <div class="arrow" style="font-size:52px">&#8594;</div>
+  <div class="col">
+    <div class="box green rot2">4. Create each singleton<div class="small">BeanFactory</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box green rot1">5. Resolve constructor args<div class="small">DependencyResolver, recursive</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box teal rot2">6. Invoke @PostConstruct<div class="small">LifecycleMethods</div></div>
+  </div>
+  <div class="arrow" style="font-size:52px">&#8594;</div>
+  <div class="col">
+    <div class="box orange rot1">7. Apply post-processors<div class="small">may return a proxy</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box orange rot2">8. Cache the singleton</div>
+    <div class="arrow">&#8595;</div>
+    <div class="box yellow rot1">9. ContextRefreshedEvent<div class="small">context is ready</div></div>
+  </div>
+</div>
+<div class="note" style="margin-top:34px">close() &#8594; ContextClosedEvent &#8594; @PreDestroy in reverse creation order</div>
+</body></html>

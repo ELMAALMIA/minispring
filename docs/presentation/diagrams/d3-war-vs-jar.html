@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body>
+<h1>WAR or executable JAR: who owns the server?</h1>
+<div class="sub">The change Spring Boot really made</div>
+<div class="row" style="gap:80px; align-items:flex-start; margin-top:14px">
+  <div class="col">
+    <div class="box grey" style="width:520px">Before: WAR</div>
+    <div class="box orange rot1" style="width:520px">Tomcat is installed and started<div class="small">it owns the JVM and the lifecycle</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box blue rot2" style="width:520px">It loads your app.war<div class="small">web.xml, ServletContainerInitializer</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box teal rot1" style="width:520px">Spring context starts inside it</div>
+    <div class="note" style="margin-top:12px; width:520px">Several apps, one JVM. Deploy = copy a file into a shared server.</div>
+  </div>
+  <div class="col">
+    <div class="box grey" style="width:520px">Now: executable JAR</div>
+    <div class="box green rot2" style="width:520px">java -jar app.jar<div class="small">your main() runs first</div></div>
+    <div class="arrow">&#8595;</div>
+    <div class="box teal rot1" style="width:520px">Spring context starts</div>
+    <div class="arrow">&#8595;</div>
+    <div class="box purple rot2" style="width:520px">...which starts an embedded Tomcat<div class="small">a Maven dependency, nothing else</div></div>
+    <div class="note" style="margin-top:12px; width:520px">One app, one JVM, one container image. Deploy = run a process.</div>
+  </div>
+</div>
+</body></html>

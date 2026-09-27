@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body>
+<h1>How @Conditional decides what gets wired</h1>
+<div class="sub">Auto-configuration is a plugin on the container, not a power of it</div>
+<div class="row" style="gap:16px; margin-top:16px">
+  <div class="box blue rot1" style="width:280px">1. Your beans are registered<div class="small">the application first</div></div>
+  <div class="arrow">&#8594;</div>
+  <div class="box teal rot2" style="width:290px">2. Read the index<div class="small code" style="font-size:18px">META-INF/minispring/<br>autoconfiguration.imports</div></div>
+  <div class="arrow">&#8594;</div>
+  <div class="box purple rot1" style="width:250px">3. Sort them<div class="small">@AutoConfigureAfter</div></div>
+  <div class="arrow">&#8594;</div>
+  <div class="box orange rot2" style="width:270px">4. Evaluate conditions<div class="small">on definitions, never instances</div></div>
+</div>
+<div class="row" style="gap:40px; margin-top:34px">
+  <div class="box green rot1" style="width:520px">Matches &#8594; register what is still missing<div class="small">@ConditionalOnMissingBean</div></div>
+  <div class="box red rot2" style="width:520px">Does not match &#8594; skip, and record why<div class="small">the condition evaluation report</div></div>
+</div>
+<div class="row note" style="margin-top:34px">Auto-configurations register LAST &#8212; that is the only reason "unless you declared your own" can work</div>
+</body></html>

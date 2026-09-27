@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body>
+<h1>@Transactional is a proxy, and that explains the bug</h1>
+<div class="sub">TransactionalProcessor returns a different object than the bean</div>
+<div class="row" style="gap:24px; margin-top:20px">
+  <div class="col"><div class="box blue rot1" style="width:250px">Caller<div class="small">another bean</div></div></div>
+  <div class="arrow">&#8594;</div>
+  <div class="col">
+    <div class="box purple rot2" style="width:330px">JDK dynamic proxy<div class="small">implements OrderService</div></div>
+    <div class="small" style="color:#6741d9">begin &#8594; call &#8594; commit</div>
+  </div>
+  <div class="arrow">&#8594;</div>
+  <div class="col">
+    <div class="box green rot1" style="width:430px; text-align:left">
+      <span class="code">class OrderServiceImpl {</span><br>
+      <span class="code">&nbsp;&nbsp;@Transactional placeOrder()</span><br>
+      <span class="code" style="color:#c92a2a">&nbsp;&nbsp;placeAll() { this.placeOrder(); }</span><br>
+      <span class="code">}</span>
+    </div>
+  </div>
+</div>
+<div class="row" style="margin-top:34px; gap:18px">
+  <div class="box red rot2" style="width:900px">Inside the bean, "this" is the bean, not the proxy<div class="small">so this.placeOrder() opens no transaction &#8212; the most common Spring bug</div></div>
+</div>
+<div class="note" style="margin-top:28px">Same behaviour in Spring, with JDK proxies and with CGLIB subclasses</div>
+</body></html>

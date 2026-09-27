@@ -366,6 +366,10 @@ These are decisions, not accidents:
 - **Auto-configuration stays small on purpose:** classes are named as strings in `@ConditionalOnClass`, there is no `@ConfigurationProperties` binding, no `@Import`, no profiles, and a registrar is added explicitly rather than discovered, so a reader can see where it comes from.
 - **A `@Bean` method calling another one** builds a second, unmanaged instance, because there is no CGLIB. Pass dependencies as parameters, which is the better habit in Spring too.
 
+## The talk
+
+[docs/presentation](docs/presentation) holds a 35-slide deck with speaker notes, "Spring is not magic", built from this code: what an annotation really is, which class reads each one here and in Spring, and how `@Conditional` decides what gets wired. The diagrams and the generator script are there too.
+
 ## Read the commit history
 
 The history *is* the tutorial. Each commit adds one concept with its tests, in the order you would build it yourself:

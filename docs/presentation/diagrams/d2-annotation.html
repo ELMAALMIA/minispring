@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head><body>
+<h1>An annotation does nothing. Something has to read it.</h1>
+<div class="sub">@Component is a sticker &#183; reflection is the reader &#183; the container acts</div>
+<div class="row" style="gap:26px; margin-top:10px">
+  <div class="col" style="width:420px">
+    <div class="box grey code rot1" style="text-align:left">@Component<br>class AuditService {}</div>
+    <div class="small">1. Your class, with a sticker</div>
+  </div>
+  <div class="arrow">&#8594;</div>
+  <div class="col" style="width:470px">
+    <div class="box yellow code rot2" style="text-align:left">javap -v AuditService.class<br><br>RuntimeVisibleAnnotations:<br>&nbsp;&nbsp;0: #14(); Component</div>
+    <div class="small">2. Stored in the class file</div>
+  </div>
+  <div class="arrow">&#8594;</div>
+  <div class="col" style="width:430px">
+    <div class="box blue code rot1" style="text-align:left">type.isAnnotationPresent(<br>&nbsp;&nbsp;Component.class)</div>
+    <div class="small">3. Reflection reads it</div>
+  </div>
+</div>
+<div class="row" style="margin-top:36px; gap:20px">
+  <div class="box green rot2">4. ClasspathScanner keeps the class &#8594; BeanDefinition &#8594; bean</div>
+</div>
+<div class="row note" style="margin-top:34px; gap:14px">
+  <span>Change RUNTIME to CLASS and the annotation is dropped from the class file:</span>
+  <span class="code" style="color:#c92a2a">the scanner finds nothing, silently</span>
+</div>
+</body></html>
